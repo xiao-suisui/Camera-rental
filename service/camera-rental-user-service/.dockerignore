@@ -1,0 +1,12 @@
+src/
+pom.xml
+*.md
+.git
+.idea
+*.iml
+target/classes
+target/generated-sources
+target/maven-status
+target/test-classes
+target/generated-test-sources
+

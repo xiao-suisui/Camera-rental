@@ -1,0 +1,18 @@
+# ============================================================
+# Order Service — 生产环境配置
+# ============================================================
+
+knife4j:
+  enable: false
+  production: true
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+api-doc:
+  title: "Order Service API"
+  description: "订单服务 API"
+

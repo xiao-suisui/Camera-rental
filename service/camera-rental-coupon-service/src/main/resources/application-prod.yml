@@ -1,0 +1,18 @@
+# ============================================================
+# Coupon Service — 生产环境配置
+# ============================================================
+
+knife4j:
+  enable: false
+  production: true
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+api-doc:
+  title: "Coupon Service API"
+  description: "优惠券服务 API"
+

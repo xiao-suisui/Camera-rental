@@ -1,0 +1,18 @@
+# ============================================================
+# Device Service — 生产环境配置
+# ============================================================
+
+knife4j:
+  enable: false
+  production: true
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+api-doc:
+  title: "Device Service API"
+  description: "设备服务 API"
+

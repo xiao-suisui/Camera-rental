@@ -1,0 +1,19 @@
+# ============================================================
+# Order Service 本地开发配置（可选）
+# 说明：此文件仅在 dev profile 激活时加载
+#      用于本地开发时覆盖 Nacos 中的配置（仅限测试）
+# ============================================================
+
+# 本地端口配置（可选，通常从 Nacos 获取）
+server:
+  port: 8083
+
+# Knife4j API 文档配置
+api-doc:
+  title: "Order Service API"
+  description: "订单服务 API 文档 - 创建订单、支付、评价"
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn

@@ -1,0 +1,43 @@
+# ============================================================
+# Device Service Bootstrap 配置
+# 说明：bootstrap.yml 优先于 application.yml 加载
+#      用于配置 Nacos 配置中心连接信息
+# ============================================================
+
+spring:
+  application:
+    name: camera-rental-device-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  cloud:
+    nacos:
+      # Nacos 配置中心
+      config:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:b87db654-8323-4c9f-ba55-66ce6d0622be}
+        group: ${CONFIG_GROUP:DEFAULT_GROUP}
+        file-extension: yaml
+        import-check:
+          enabled: false
+        # 共享配置（多服务共用）
+        shared-configs:
+          - data-id: common-config.yaml
+            group: SHARED_GROUP
+            refresh: true
+          - data-id: cipher-config.yaml
+            group: SHARED_GROUP
+            refresh: true
+          - data-id: datasource-config.yaml
+            group: SHARED_GROUP
+            refresh: true
+          - data-id: minio-config.yaml
+            group: SHARED_GROUP
+            refresh: true
+          - data-id: redis-config.yaml
+            group: SHARED_GROUP
+            refresh: true
+      # Nacos 服务注册与发现
+      discovery:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:b87db654-8323-4c9f-ba55-66ce6d0622be}
+

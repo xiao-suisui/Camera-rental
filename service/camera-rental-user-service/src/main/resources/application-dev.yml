@@ -1,0 +1,12 @@
+server:
+  port: 8081
+
+# Knife4j API 文档配置（差异化标题，其余由 common 的 OpenApiConfig 处理）
+api-doc:
+  title: "User Service API"
+  description: "用户服务 API 文档 - 注册、登录、个人信息管理"
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
