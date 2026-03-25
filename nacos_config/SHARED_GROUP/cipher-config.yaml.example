@@ -1,0 +1,37 @@
+# ============================================
+# 敏感配置模板 - cipher-config.yaml
+# ============================================
+# 使用方法：
+# 1. 复制本文件为 cipher-config.yaml
+# 2. 填入实际的密码和密钥
+# 3. 导入到 Nacos 配置中心（SHARED_GROUP 分组）
+# 4. 切勿将填入真实密码后的文件提交到 Git
+# ============================================
+
+# 数据库配置
+DATASOURCE_URL: jdbc:mysql://localhost:3306/camera_rental?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+DATASOURCE_USERNAME: root
+DATASOURCE_PASSWORD: your_database_password
+
+# JWT密钥（建议使用 256 位安全随机密钥，可用 openssl rand -base64 32 生成）
+JWT_SECRET: your_jwt_secret_key_at_least_32_chars
+
+# MinIO配置
+MINIO_ENDPOINT: http://localhost:9000
+MINIO_ACCESS_KEY: your_minio_access_key
+MINIO_SECRET_KEY: your_minio_secret_key
+
+# Redis配置
+REDIS_HOST: localhost
+REDIS_PORT: 6379
+REDIS_PASSWORD: your_redis_password
+
+# Druid监控密码
+DRUID_PASSWORD: your_druid_password
+
+# Sentinel Dashboard地址
+SENTINEL_DASHBOARD: http://localhost:8858
+
+# Seata开关
+SEATA_ENABLED: false
+

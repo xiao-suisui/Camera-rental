@@ -1,0 +1,138 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      # ====================== 关闭自动发现 ======================
+      discovery:
+        locator:
+          enabled: false
+          lower-case-service-id: true
+
+      routes:
+        # ========== 业务路由（最低优先级，order=100） ==========
+        - id: user-service
+          uri: lb://camera-rental-user-service
+          predicates:
+            - Path=/user/**
+          filters:
+            - StripPrefix=0
+          order: 100
+        - id: device-service
+          uri: lb://camera-rental-device-service
+          predicates:
+            - Path=/device/**
+          filters:
+            - StripPrefix=0
+          order: 100
+        - id: order-service
+          uri: lb://camera-rental-order-service
+          predicates:
+            - Path=/order/**
+          filters:
+            - StripPrefix=0
+          order: 100
+        - id: coupon-service
+          uri: lb://camera-rental-coupon-service
+          predicates:
+            - Path=/coupon/**
+          filters:
+            - StripPrefix=0
+          order: 100
+
+        - id: message-service
+          uri: lb://camera-rental-user-service
+          predicates:
+            - Path=/message/**
+          filters:
+            - StripPrefix=0
+          order: 100
+        - id: evaluation-service
+          uri: lb://camera-rental-order-service
+          predicates:
+            - Path=/evaluation/**
+          filters:
+            - StripPrefix=0
+          order: 100
+        - id: favorite-service
+          uri: lb://camera-rental-device-service
+          predicates:
+            - Path=/favorite/**
+          filters:
+            - StripPrefix=0
+          order: 100
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins:            # 列出具体的前端域名
+              - "http://localhost:3000"  # 本地前端地址
+            allowed-methods: "*"
+            allowed-headers: "*"
+            allow-credentials: true
+            max-age: 3600
+
+      httpclient:
+        connect-timeout: 3000          # 连接超时时间（3秒）
+        response-timeout: 10s          # 响应超时时间（10秒，Duration格式）
+      httpserver:
+        compression:
+          enabled: true                # 开启响应压缩（提升传输效率）
+
+    # Sentinel 配置
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:localhost:8858}
+        port: 8720
+      eager: true
+      #网关流控规则（可选，开发环境先开启）
+      scg:
+        fallback:
+          mode: response
+          response-body: '{"code":503,"message":"服务繁忙，请稍后再试"}'
+
+# ========== OpenAPI 文档聚合配置（网关层） ==========
+springdoc:
+  gateway:
+    enabled: false
+# ========== Knife4j Gateway 聚合文档配置 ==========
+knife4j:
+  gateway:
+    enabled: true
+    strategy: manual
+    routes:
+      - name: 用户服务
+        service-name: camera-rental-user-service
+        url: /user/v3/api-docs
+        order: 1
+      - name: 设备服务
+        service-name: camera-rental-device-service
+        url: /device/v3/api-docs
+        order: 2
+      - name: 订单服务
+        service-name: camera-rental-order-service
+        url: /order/v3/api-docs
+        order: 3
+      - name: 优惠券服务
+        service-name: camera-rental-coupon-service
+        url: /coupon/v3/api-docs
+        order: 4
+
+# JWT配置（加密存储）
+jwt:
+  secret: ${JWT_SECRET}
+  issuer: camera-rental
+  expiration-minutes: 120
+
+# 网关安全扩展配置：管理端仅允许内网/IP 白名单访问
+gateway:
+  security:
+    internal-ip-whitelist: ${GATEWAY_INTERNAL_IP_WHITELIST:127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: warn
+    com.example.camerarental: warn
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

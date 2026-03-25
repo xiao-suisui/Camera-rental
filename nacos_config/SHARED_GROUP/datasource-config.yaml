@@ -1,0 +1,38 @@
+spring:
+  datasource:
+    # 1. 基础数据库配置（必须放在 spring.datasource 根节点）
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DATASOURCE_URL:jdbc:mysql://localhost:3306/camera_rental?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}
+    username: ${DATASOURCE_USERNAME:root}
+    password: ${DATASOURCE_PASSWORD:123456}
+
+    # 2. Druid 专属连接池配置（放在 druid 子节点）
+    druid:
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      max-wait: 60000
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      validation-query: SELECT 1
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      pool-prepared-statements: true
+      max-pool-prepared-statement-per-connection-size: 20
+      filters: stat,wall
+      connection-properties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=5000
+      web-stat-filter:
+        enabled: ${DRUID_WEB_STAT_ENABLED:false}
+        url-pattern: /*
+        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
+      stat-view-servlet:
+        # 默认关闭，只有临时开窗时才启用
+        enabled: ${DRUID_STAT_VIEW_ENABLED:false}
+        url-pattern: /druid/*
+        reset-enable: false
+        login-username: ${DRUID_USERNAME:root}
+        login-password: ${DRUID_PASSWORD:change-me}
+        # 多个IP使用英文逗号分隔；默认仅允许本机
+        allow: ${DRUID_ALLOW_IP:127.0.0.1}
