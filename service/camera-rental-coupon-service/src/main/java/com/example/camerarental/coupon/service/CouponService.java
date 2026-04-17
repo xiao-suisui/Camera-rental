@@ -6,6 +6,7 @@ import com.example.camerarental.common.enums.CouponStatus;
 import com.example.camerarental.common.enums.CouponUseStatus;
 import com.example.camerarental.common.enums.ErrorCode;
 import com.example.camerarental.common.exception.BusinessException;
+import com.example.camerarental.common.mq.OrderCancelledEvent;
 import com.example.camerarental.coupon.dto.CouponCreateRequest;
 import com.example.camerarental.coupon.dto.CouponReceiveRequest;
 import com.example.camerarental.coupon.entity.Coupon;
@@ -177,6 +178,42 @@ public class CouponService {
         coupon.setUpdatedAt(LocalDateTime.now());
         couponMapper.updateById(coupon);
         log.info("Coupon offline: couponId={}", couponId);
+    }
+
+    @Transactional
+    public void handleOrderCancelledRollbackCoupon(OrderCancelledEvent event) {
+        if (event == null || event.getCouponId() == null || event.getUserId() == null) {
+            log.warn("Skip coupon rollback for invalid order-cancelled event: {}", event);
+            return;
+        }
+
+        UserCoupon userCoupon = userCouponMapper.selectOne(
+                new LambdaQueryWrapper<UserCoupon>()
+                        .eq(UserCoupon::getUserId, event.getUserId())
+                        .eq(UserCoupon::getCouponId, event.getCouponId())
+                        .eq(UserCoupon::getUseStatus, CouponUseStatus.USED.getValue())
+                        .last("limit 1")
+        );
+        if (userCoupon == null) {
+            log.info("No used coupon needs rollback: userId={}, couponId={}", event.getUserId(), event.getCouponId());
+            return;
+        }
+
+        userCoupon.setUseStatus(CouponUseStatus.UNUSED.getValue());
+        userCoupon.setOrderId(null);
+        userCouponMapper.updateById(userCoupon);
+
+        couponMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Coupon>()
+                        .eq(Coupon::getId, event.getCouponId())
+                        .gt(Coupon::getUsedCount, 0)
+                        .setSql("used_count = used_count - 1")
+                        .set(Coupon::getUpdatedAt, LocalDateTime.now())
+        );
+
+        stringRedisTemplate.opsForValue().increment(COUPON_STOCK_KEY + event.getCouponId());
+        log.info("Rolled back coupon usage for cancelled order: orderNo={}, userId={}, couponId={}",
+                event.getOrderNo(), event.getUserId(), event.getCouponId());
     }
 }
 

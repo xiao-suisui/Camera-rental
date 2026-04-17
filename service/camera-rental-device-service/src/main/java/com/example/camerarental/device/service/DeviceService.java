@@ -8,6 +8,7 @@ import com.example.camerarental.common.enums.AuditStatus;
 import com.example.camerarental.common.enums.DeviceStatus;
 import com.example.camerarental.common.enums.ErrorCode;
 import com.example.camerarental.common.exception.BusinessException;
+import com.example.camerarental.common.mq.OrderCancelledEvent;
 import com.example.camerarental.device.dto.DeviceAuditRequest;
 import com.example.camerarental.device.dto.DeviceBatchPublishRequest;
 import com.example.camerarental.device.dto.DevicePublishRequest;
@@ -265,6 +266,25 @@ public class DeviceService {
         }
         wrapper.orderByDesc(Device::getCreatedAt);
         return deviceMapper.selectPage(new Page<>(page, size), wrapper);
+    }
+
+    @Transactional
+    public void handleOrderCancelledReleaseStock(OrderCancelledEvent event) {
+        if (event == null || event.getDeviceId() == null) {
+            log.warn("Skip stock release for invalid order-cancelled event: {}", event);
+            return;
+        }
+
+        Device device = deviceMapper.selectById(event.getDeviceId());
+        if (device == null || Integer.valueOf(1).equals(device.getDeleted())) {
+            log.warn("Skip stock release because device not found or deleted: deviceId={}", event.getDeviceId());
+            return;
+        }
+
+        device.setStatus(DeviceStatus.ACTIVE.getValue());
+        device.setUpdatedAt(LocalDateTime.now());
+        deviceMapper.updateById(device);
+        log.info("Order-cancelled stock released: orderNo={}, deviceId={}", event.getOrderNo(), event.getDeviceId());
     }
 }
 
