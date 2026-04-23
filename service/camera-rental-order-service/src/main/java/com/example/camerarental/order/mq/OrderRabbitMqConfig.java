@@ -21,16 +21,6 @@ public class OrderRabbitMqConfig {
     }
 
     @Bean
-    public TopicExchange orderTopicExchange() {
-        return new TopicExchange(MqConstants.ORDER_TOPIC_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public DirectExchange orderDeadLetterExchange() {
-        return new DirectExchange(MqConstants.ORDER_DLX_EXCHANGE, true, false);
-    }
-
-    @Bean
     public Queue userNotifyQueue() {
         return QueueBuilder.durable(MqConstants.USER_NOTIFY_QUEUE)
                 .withArgument("x-dead-letter-exchange", MqConstants.ORDER_DLX_EXCHANGE)
@@ -70,44 +60,44 @@ public class OrderRabbitMqConfig {
     }
 
     @Bean
-    public Binding userNotifyBinding() {
-        return BindingBuilder.bind(userNotifyQueue())
-                .to(orderTopicExchange())
+    public Binding userNotifyBinding(Queue userNotifyQueue, TopicExchange orderTopicExchange) {
+        return BindingBuilder.bind(userNotifyQueue)
+                .to(orderTopicExchange)
                 .with(MqConstants.ORDER_NOTIFY_USER_ROUTING_KEY);
     }
 
     @Bean
-    public Binding userNotifyDlqBinding() {
-        return BindingBuilder.bind(userNotifyDlq())
-                .to(orderDeadLetterExchange())
+    public Binding userNotifyDlqBinding(Queue userNotifyDlq, DirectExchange orderDeadLetterExchange) {
+        return BindingBuilder.bind(userNotifyDlq)
+                .to(orderDeadLetterExchange)
                 .with(MqConstants.USER_NOTIFY_DLQ_ROUTING_KEY);
     }
 
     @Bean
-    public Binding deviceSyncBinding() {
-        return BindingBuilder.bind(deviceSyncQueue())
-                .to(orderTopicExchange())
+    public Binding deviceSyncBinding(Queue deviceSyncQueue, TopicExchange orderTopicExchange) {
+        return BindingBuilder.bind(deviceSyncQueue)
+                .to(orderTopicExchange)
                 .with(MqConstants.ORDER_CANCELLED_RELEASE_STOCK_KEY);
     }
 
     @Bean
-    public Binding couponSyncBinding() {
-        return BindingBuilder.bind(couponSyncQueue())
-                .to(orderTopicExchange())
+    public Binding couponSyncBinding(Queue couponSyncQueue, TopicExchange orderTopicExchange) {
+        return BindingBuilder.bind(couponSyncQueue)
+                .to(orderTopicExchange)
                 .with(MqConstants.ORDER_CANCELLED_ROLLBACK_COUPON_KEY);
     }
 
     @Bean
-    public Binding deviceSyncDlqBinding() {
-        return BindingBuilder.bind(deviceSyncDlq())
-                .to(orderDeadLetterExchange())
+    public Binding deviceSyncDlqBinding(Queue deviceSyncDlq, DirectExchange orderDeadLetterExchange) {
+        return BindingBuilder.bind(deviceSyncDlq)
+                .to(orderDeadLetterExchange)
                 .with(MqConstants.DEVICE_SYNC_DLQ_ROUTING_KEY);
     }
 
     @Bean
-    public Binding couponSyncDlqBinding() {
-        return BindingBuilder.bind(couponSyncDlq())
-                .to(orderDeadLetterExchange())
+    public Binding couponSyncDlqBinding(Queue couponSyncDlq, DirectExchange orderDeadLetterExchange) {
+        return BindingBuilder.bind(couponSyncDlq)
+                .to(orderDeadLetterExchange)
                 .with(MqConstants.COUPON_SYNC_DLQ_ROUTING_KEY);
     }
 }

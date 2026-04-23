@@ -100,10 +100,7 @@ const loadOrderDetail = async () => {
 
 const checkCanEvaluate = async () => {
   try {
-    const { data } = await evaluationApi.canEvaluate(
-      route.params.orderId,
-      userStore.userInfo.userId
-    )
+    const { data } = await evaluationApi.canEvaluate(route.params.orderId)
     if (!data) {
       ElMessage.warning('该订单无法评价')
       router.back()

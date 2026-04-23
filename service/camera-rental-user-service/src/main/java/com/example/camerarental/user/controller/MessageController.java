@@ -19,7 +19,7 @@ public class MessageController {
      * 获取消息列表
      */
     @GetMapping("/list")
-    public Result<List<Message>> list(@RequestParam Long userId) {
+    public Result<List<Message>> list(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(messageService.listByUserId(userId));
     }
 
@@ -27,7 +27,7 @@ public class MessageController {
      * 获取未读消息数量
      */
     @GetMapping("/unread-count")
-    public Result<Integer> unreadCount(@RequestParam Long userId) {
+    public Result<Integer> unreadCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(messageService.getUnreadCount(userId));
     }
 
@@ -35,8 +35,10 @@ public class MessageController {
      * 标记消息已读
      */
     @PostMapping("/read/{messageId}")
-    public Result<Void> markRead(@PathVariable Long messageId) {
-        messageService.markRead(messageId);
+    public Result<Void> markRead(
+            @PathVariable Long messageId,
+            @RequestHeader("X-User-Id") Long userId) {
+        messageService.markRead(messageId, userId);
         return Result.success("标记已读成功", null);
     }
 
@@ -44,7 +46,7 @@ public class MessageController {
      * 标记所有消息已读
      */
     @PostMapping("/read-all")
-    public Result<Void> markAllRead(@RequestParam Long userId) {
+    public Result<Void> markAllRead(@RequestHeader("X-User-Id") Long userId) {
         messageService.markAllRead(userId);
         return Result.success("全部已读", null);
     }
@@ -53,8 +55,10 @@ public class MessageController {
      * 删除消息
      */
     @DeleteMapping("/{messageId}")
-    public Result<Void> delete(@PathVariable Long messageId) {
-        messageService.delete(messageId);
+    public Result<Void> delete(
+            @PathVariable Long messageId,
+            @RequestHeader("X-User-Id") Long userId) {
+        messageService.delete(messageId, userId);
         return Result.success("删除成功", null);
     }
 

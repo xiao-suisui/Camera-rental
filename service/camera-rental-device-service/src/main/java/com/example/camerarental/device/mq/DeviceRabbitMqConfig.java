@@ -21,16 +21,6 @@ public class DeviceRabbitMqConfig {
     }
 
     @Bean
-    public TopicExchange orderTopicExchange() {
-        return new TopicExchange(MqConstants.ORDER_TOPIC_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public DirectExchange orderDeadLetterExchange() {
-        return new DirectExchange(MqConstants.ORDER_DLX_EXCHANGE, true, false);
-    }
-
-    @Bean
     public Queue deviceSyncQueue() {
         return QueueBuilder.durable(MqConstants.DEVICE_SYNC_QUEUE)
                 .withArgument("x-dead-letter-exchange", MqConstants.ORDER_DLX_EXCHANGE)
@@ -44,16 +34,16 @@ public class DeviceRabbitMqConfig {
     }
 
     @Bean
-    public Binding deviceSyncBinding() {
-        return BindingBuilder.bind(deviceSyncQueue())
-                .to(orderTopicExchange())
+    public Binding deviceSyncBinding(Queue deviceSyncQueue, TopicExchange orderTopicExchange) {
+        return BindingBuilder.bind(deviceSyncQueue)
+                .to(orderTopicExchange)
                 .with(MqConstants.ORDER_CANCELLED_RELEASE_STOCK_KEY);
     }
 
     @Bean
-    public Binding deviceSyncDlqBinding() {
-        return BindingBuilder.bind(deviceSyncDlq())
-                .to(orderDeadLetterExchange())
+    public Binding deviceSyncDlqBinding(Queue deviceSyncDlq, DirectExchange orderDeadLetterExchange) {
+        return BindingBuilder.bind(deviceSyncDlq)
+                .to(orderDeadLetterExchange)
                 .with(MqConstants.DEVICE_SYNC_DLQ_ROUTING_KEY);
     }
 }

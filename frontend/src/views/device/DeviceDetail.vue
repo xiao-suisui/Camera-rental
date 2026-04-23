@@ -152,7 +152,7 @@ const formatTime = (time) => {
 
 const checkFavoriteStatus = async () => {
   try {
-    const { data } = await favoriteApi.check(userStore.userInfo.userId, route.params.id)
+    const { data } = await favoriteApi.check(route.params.id)
     isCollected.value = data
   } catch (error) {
     console.error('检查收藏状态失败', error)
@@ -180,12 +180,12 @@ const handleCollect = async () => {
   try {
     if (isCollected.value) {
       // 取消收藏
-      await favoriteApi.remove(userStore.userInfo.userId, device.value.id)
+      await favoriteApi.remove(device.value.id)
       isCollected.value = false
       ElMessage.success('取消收藏成功')
     } else {
       // 添加收藏
-      await favoriteApi.add(userStore.userInfo.userId, device.value.id)
+      await favoriteApi.add(device.value.id)
       isCollected.value = true
       ElMessage.success('收藏成功')
     }

@@ -16,8 +16,8 @@ import com.example.camerarental.order.dto.OrderCreateResponse;
 import com.example.camerarental.order.entity.Order;
 import com.example.camerarental.order.feign.CouponFeignClient;
 import com.example.camerarental.order.feign.DeviceFeignClient;
-import com.example.camerarental.order.feign.MessageFeignClient;
 import com.example.camerarental.order.mapper.OrderMapper;
+import com.example.camerarental.order.mq.OrderNotificationProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,11 +36,13 @@ public class OrderService {
     private final OrderMapper orderMapper;
     private final DeviceFeignClient deviceFeignClient;
     private final CouponFeignClient couponFeignClient;
-    private final MessageFeignClient messageFeignClient;
+    private final OrderNotificationProducer orderNotificationProducer;
 
     @Transactional(rollbackFor = Exception.class)
     public OrderCreateResponse createOrder(OrderCreateRequest request, Long operatorUserId, String operatorRole) {
-        checkOperatorPermission(operatorUserId, operatorRole, request.getUserId());
+        if (operatorUserId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "未获取到用户身份信息");
+        }
 
         // 1. 查询设备信息
         DeviceDTO device = deviceFeignClient.getById(request.getDeviceId()).getData();
@@ -76,7 +78,7 @@ public class OrderService {
         // 4. 创建订单
         Order order = new Order();
         order.setOrderNo(generateOrderNo());
-        order.setUserId(request.getUserId());
+        order.setUserId(operatorUserId);
         order.setDeviceId(request.getDeviceId());
         order.setLessorId(device.getUserId());
         order.setStartTime(request.getStartTime());
@@ -134,15 +136,15 @@ public class OrderService {
         orderMapper.updateById(order);
         log.info("Order shipped: orderId={}, trackingNumber={}", orderId, trackingNumber);
 
-        // 发送站内信通知租用者
+        // 通过 Outbox + MQ 异步通知租用者
         try {
-            messageFeignClient.sendMessage(
+            orderNotificationProducer.sendShippedNotification(
+                    order.getOrderNo(),
                     order.getUserId(),
-                    String.format("您的订单 %s 已发货，物流单号：%s", order.getOrderNo(), trackingNumber),
-                    "ORDER_STATUS"
+                    String.format("您的订单 %s 已发货，物流单号：%s", order.getOrderNo(), trackingNumber)
             );
         } catch (Exception e) {
-            log.error("Failed to send message", e);
+            log.error("Failed to create shipped notification outbox event", e);
         }
     }
 
@@ -163,14 +165,15 @@ public class OrderService {
         orderMapper.updateById(order);
         log.info("Order received: orderId={}", orderId);
 
+        // 通过 Outbox + MQ 异步通知出租者
         try {
-            messageFeignClient.sendMessage(
+            orderNotificationProducer.sendReceivedNotification(
+                    order.getOrderNo(),
                     order.getLessorId(),
-                    String.format("租用者已确认收货，订单 %s 进入使用中", order.getOrderNo()),
-                    "ORDER_STATUS"
+                    String.format("租用者已确认收货，订单 %s 进入使用中", order.getOrderNo())
             );
         } catch (Exception e) {
-            log.error("Failed to send message", e);
+            log.error("Failed to create received notification outbox event", e);
         }
     }
 
@@ -197,15 +200,15 @@ public class OrderService {
         orderMapper.updateById(order);
         log.info("Order return applied: orderId={}, trackingNumber={}", orderId, trackingNumber);
 
-        // 发送站内信通知出租者
+        // 通过 Outbox + MQ 异步通知出租者
         try {
-            messageFeignClient.sendMessage(
+            orderNotificationProducer.sendReturnAppliedNotification(
+                    order.getOrderNo(),
                     order.getLessorId(),
-                    String.format("租用者已申请归还订单 %s，请注意查收", order.getOrderNo()),
-                    "ORDER_STATUS"
+                    String.format("租用者已申请归还订单 %s，请注意查收", order.getOrderNo())
             );
         } catch (Exception e) {
-            log.error("Failed to send message", e);
+            log.error("Failed to create return-applied notification outbox event", e);
         }
     }
 
@@ -228,15 +231,15 @@ public class OrderService {
         orderMapper.updateById(order);
         log.info("Order return confirmed: orderId={}, condition={}", orderId, condition);
 
-        // 发送站内信通知租用者
+        // 通过 Outbox + MQ 异步通知租用者
         try {
-            messageFeignClient.sendMessage(
+            orderNotificationProducer.sendReturnConfirmedNotification(
+                    order.getOrderNo(),
                     order.getUserId(),
-                    String.format("您的订单 %s 已确认归还，押金已退还", order.getOrderNo()),
-                    "ORDER_STATUS"
+                    String.format("您的订单 %s 已确认归还，押金已退还", order.getOrderNo())
             );
         } catch (Exception e) {
-            log.error("Failed to send message", e);
+            log.error("Failed to create return-confirmed notification outbox event", e);
         }
     }
 
@@ -255,13 +258,25 @@ public class OrderService {
         order.setStatus(OrderStatus.CANCELED.getValue());
         order.setUpdatedAt(LocalDateTime.now());
         orderMapper.updateById(order);
+
+        // 通过 Outbox + MQ 发送取消补偿事件（释放设备库存/回滚优惠券）
+        orderNotificationProducer.sendOrderCancelledCompensation(
+            order.getOrderNo(),
+            order.getUserId(),
+            order.getDeviceId(),
+            order.getCouponId()
+        );
+
         log.info("Order canceled: orderId={}", orderId);
     }
 
-    public Order getDetail(Long orderId) {
+    public Order getDetail(Long orderId, Long operatorUserId, String operatorRole) {
         Order order = orderMapper.selectById(orderId);
         if (order == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "订单不存在");
+        }
+        if (!canReadOrder(order, operatorUserId, operatorRole)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "无权查看该订单");
         }
         return order;
     }
@@ -325,6 +340,16 @@ public class OrderService {
         if (operatorUserId == null || !expectedUserId.equals(operatorUserId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "无权操作该订单");
         }
+    }
+
+    private boolean canReadOrder(Order order, Long operatorUserId, String operatorRole) {
+        if ("ADMIN".equalsIgnoreCase(operatorRole)) {
+            return true;
+        }
+        if (operatorUserId == null) {
+            return false;
+        }
+        return operatorUserId.equals(order.getUserId()) || operatorUserId.equals(order.getLessorId());
     }
 }
 

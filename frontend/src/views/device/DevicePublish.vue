@@ -98,7 +98,6 @@ const publishType = ref('single')
 const batchQuantity = ref(1)
 
 const form = ref({
-  userId: userStore.userInfo.userId,
   title: '',
   brand: '',
   model: '',

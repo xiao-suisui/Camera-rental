@@ -2,16 +2,22 @@ package com.example.camerarental.common.aspect;
 
 import cn.hutool.json.JSONUtil;
 import com.example.camerarental.common.annotation.OperationLog;
+import com.example.camerarental.common.entity.OperationLogEntity;
+import com.example.camerarental.common.mapper.OperationLogMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+
+import java.time.LocalDateTime;
 
 /**
  * 操作日志切面
@@ -19,8 +25,12 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 @Slf4j
 @Aspect
 @Component
+@RequiredArgsConstructor
 @ConditionalOnClass(HttpServletRequest.class)
+@ConditionalOnBean(OperationLogMapper.class)
 public class OperationLogAspect {
+
+    private final OperationLogMapper operationLogMapper;
 
     @Around("@annotation(com.example.camerarental.common.annotation.OperationLog)")
     public Object around(ProceedingJoinPoint point) throws Throwable {
@@ -57,6 +67,7 @@ public class OperationLogAspect {
         }
 
         Object result = null;
+        Exception businessException = null;
         try {
             // 执行方法
             result = point.proceed();
@@ -68,13 +79,59 @@ public class OperationLogAspect {
 
             return result;
         } catch (Exception e) {
+            businessException = e;
             log.error("操作异常: ", e);
             throw e;
         } finally {
-            long endTime = System.currentTimeMillis();
-            log.info("执行时间: {}ms", endTime - startTime);
+            long executionTime = System.currentTimeMillis() - startTime;
+            log.info("执行时间: {}ms", executionTime);
             log.info("======= 操作日志结束 =======");
+
+            try {
+                OperationLogEntity logEntity = OperationLogEntity.builder()
+                        .type(operationLog.type())
+                        .description(operationLog.description())
+                        .method(className + "." + methodName)
+                        .url(requestUrl)
+                        .requestMethod(requestMethod)
+                        .requestParams(operationLog.saveRequestData() ? JSONUtil.toJsonStr(point.getArgs()) : null)
+                        .responseResult(operationLog.saveResponseData() && result != null ? JSONUtil.toJsonStr(result) : null)
+                        .userId(parseUserId(request))
+                        .ip(getClientIp(request))
+                        .executionTime(executionTime)
+                        .status(businessException == null ? "SUCCESS" : "ERROR")
+                        .errorMsg(businessException == null ? null : businessException.getMessage())
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                operationLogMapper.insert(logEntity);
+            } catch (Exception ex) {
+                // 日志入库失败不应影响主业务。
+                log.warn("Operation log persist failed", ex);
+            }
         }
+    }
+
+    private Long parseUserId(HttpServletRequest request) {
+        if (request == null) {
+            return null;
+        }
+        try {
+            String userId = request.getHeader("X-User-Id");
+            return userId == null || userId.isBlank() ? null : Long.valueOf(userId);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        if (request == null) {
+            return null;
+        }
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return xff.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }
 

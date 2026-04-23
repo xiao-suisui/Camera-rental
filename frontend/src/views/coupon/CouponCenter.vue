@@ -95,7 +95,6 @@ const handleReceive = async (coupon) => {
   isReceiving.value = true
   try {
     await couponApi.receive({
-      userId: userStore.userInfo.userId,
       couponId: coupon.id
     })
     ElMessage.success('领取成功')

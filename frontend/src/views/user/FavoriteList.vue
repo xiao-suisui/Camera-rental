@@ -90,8 +90,8 @@ const loadFavorites = async () => {
   loading.value = true
   try {
     const [listRes, countRes] = await Promise.all([
-      favoriteApi.getList(userStore.userInfo.userId),
-      favoriteApi.getCount(userStore.userInfo.userId)
+      favoriteApi.getList(),
+      favoriteApi.getCount()
     ])
 
     devices.value = listRes.data || []
@@ -120,7 +120,7 @@ const handleRemoveFavorite = async (deviceId) => {
       type: 'warning'
     })
 
-    await favoriteApi.remove(userStore.userInfo.userId, deviceId)
+    await favoriteApi.remove(deviceId)
     ElMessage.success('取消收藏成功')
     await loadFavorites()
   } catch (error) {

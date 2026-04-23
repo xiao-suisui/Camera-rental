@@ -2,28 +2,24 @@ import request from '@/utils/request'
 
 export const favoriteApi = {
   // 收藏设备
-  add: (userId, deviceId) => request.post('/favorite/add', null, {
-    params: { userId, deviceId }
+  add: (deviceId) => request.post('/favorite/add', null, {
+    params: { deviceId }
   }),
 
   // 取消收藏
-  remove: (userId, deviceId) => request.delete('/favorite/remove', {
-    params: { userId, deviceId }
+  remove: (deviceId) => request.delete('/favorite/remove', {
+    params: { deviceId }
   }),
 
   // 检查是否已收藏
-  check: (userId, deviceId) => request.get('/favorite/check', {
-    params: { userId, deviceId }
+  check: (deviceId) => request.get('/favorite/check', {
+    params: { deviceId }
   }),
 
   // 获取收藏列表
-  getList: (userId) => request.get('/favorite/list', {
-    params: { userId }
-  }),
+  getList: () => request.get('/favorite/list'),
 
   // 获取收藏数量
-  getCount: (userId) => request.get('/favorite/count', {
-    params: { userId }
-  })
+  getCount: () => request.get('/favorite/count')
 }
 

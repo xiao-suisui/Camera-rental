@@ -124,6 +124,26 @@ services:
     networks:
       - camera-rental-network
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: camera-rental-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/camera-rental}
+      TZ: Asia/Shanghai
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - camera-rental-network
+
   # ==================== 前端（Nginx 托管） ====================
 
   frontend:
@@ -180,6 +200,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     deploy:
       replicas: ${USER_SERVICE_REPLICAS:-1}
     networks:
@@ -200,6 +222,8 @@ services:
       nacos:
         condition: service_healthy
       mysql:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     deploy:
       replicas: ${DEVICE_SERVICE_REPLICAS:-1}
@@ -224,6 +248,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     deploy:
       replicas: ${ORDER_SERVICE_REPLICAS:-1}
     networks:
@@ -246,6 +272,8 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     deploy:
       replicas: ${COUPON_SERVICE_REPLICAS:-1}

@@ -146,6 +146,60 @@ CREATE TABLE IF NOT EXISTS message (
   CONSTRAINT fk_message_user FOREIGN KEY (user_id) REFERENCES `user` (id)
 ) ENGINE=InnoDB;
 
+-- MQ outbox (producer side)
+CREATE TABLE IF NOT EXISTS mq_outbox (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  event_id VARCHAR(64) NOT NULL,
+  event_type VARCHAR(64) NOT NULL,
+  aggregate_id VARCHAR(64) NOT NULL,
+  routing_key VARCHAR(128) NOT NULL,
+  payload LONGTEXT NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'NEW',
+  retry_count INT NOT NULL DEFAULT 0,
+  next_retry_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  sent_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_mq_outbox_event_id (event_id),
+  KEY idx_mq_outbox_status_retry (status, next_retry_at),
+  KEY idx_mq_outbox_aggregate (aggregate_id),
+  KEY idx_mq_outbox_created (created_at)
+) ENGINE=InnoDB;
+
+-- MQ consume log (consumer side idempotency)
+CREATE TABLE IF NOT EXISTS mq_consume_log (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  event_id VARCHAR(64) NOT NULL,
+  consumer VARCHAR(128) NOT NULL,
+  consumed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_mq_consume_log_event_consumer (event_id, consumer),
+  KEY idx_mq_consume_log_consumed_at (consumed_at)
+) ENGINE=InnoDB;
+
+-- Operation log
+CREATE TABLE IF NOT EXISTS operation_log (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  type VARCHAR(64) NOT NULL,
+  description VARCHAR(256) NOT NULL,
+  method VARCHAR(256) DEFAULT NULL,
+  url VARCHAR(512) DEFAULT NULL,
+  request_method VARCHAR(16) DEFAULT NULL,
+  request_params LONGTEXT DEFAULT NULL,
+  response_result LONGTEXT DEFAULT NULL,
+  user_id BIGINT DEFAULT NULL,
+  ip VARCHAR(64) DEFAULT NULL,
+  execution_time BIGINT DEFAULT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'SUCCESS',
+  error_msg LONGTEXT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_operation_log_type (type),
+  KEY idx_operation_log_user (user_id),
+  KEY idx_operation_log_created (created_at)
+) ENGINE=InnoDB;
+
 -- Device favorites
 CREATE TABLE IF NOT EXISTS device_favorite (
   id BIGINT NOT NULL AUTO_INCREMENT,

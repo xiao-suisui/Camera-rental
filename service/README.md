@@ -166,6 +166,38 @@ docker-compose ps
 docker-compose logs -f gateway
 ```
 
+### MQ 拓扑联调检查
+
+RabbitMQ 启动后，可执行以下脚本核对 exchange/queue/binding：
+
+```powershell
+Set-Location service
+.\scripts\check-mq-topology.ps1 -HostName localhost -ManagementPort 15672 -Username guest -Password guest -VirtualHost /camera-rental
+```
+
+若只查看预期资源清单而不发起 API 请求：
+
+```powershell
+Set-Location service
+.\scripts\check-mq-topology.ps1 -DryRun
+```
+
+### 中间件连通性自检
+
+用于快速检查 MySQL/Redis/Nacos/RabbitMQ 是否可访问：
+
+```powershell
+Set-Location service
+.\scripts\check-middleware.ps1
+```
+
+若希望任一失败即返回非 0 退出码（便于 CI/任务脚本）：
+
+```powershell
+Set-Location service
+.\scripts\check-middleware.ps1 -Strict
+```
+
 ## 端口分配
 
 | 服务 | 端口 | Sentinel 端口 |

@@ -118,7 +118,6 @@ const loadOrders = async () => {
   loading.value = true
   try {
     const res = await orderApi.getList({
-      userId: userStore.userInfo.userId,
       status: searchForm.value.status || undefined,
       orderNo: searchForm.value.orderNo || undefined,
       page: currentPage.value,

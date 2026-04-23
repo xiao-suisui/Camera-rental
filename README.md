@@ -205,7 +205,7 @@ Camera-rental/
 │       └── seata-config.yaml             #   Seata 配置（预留）
 │
 ├── sql/                                  # ===== 数据库脚本 =====
-│   ├── schema.sql                        # 建表语句（8 张表）
+│   ├── schema.sql                        # 建表语句（含 mq_outbox/mq_consume_log）
 │   └── data.sql                          # 初始数据
 │
 ├── docs/                                 # ===== 项目文档 =====
@@ -246,6 +246,14 @@ cd Camera-rental
 mysql -u root -p < sql/schema.sql
 mysql -u root -p < sql/data.sql
 ```
+
+如果你已经初始化过数据库，但缺少 MQ 相关表（`mq_outbox`、`mq_consume_log`），可直接再次执行：
+
+```bash
+mysql -u root -p camera_rental < sql/schema.sql
+```
+
+`schema.sql` 使用 `CREATE TABLE IF NOT EXISTS`，会自动跳过已存在表，只补齐缺失表。
 
 ### 3. 启动中间件
 

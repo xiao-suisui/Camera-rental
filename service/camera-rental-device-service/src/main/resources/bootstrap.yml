@@ -36,6 +36,9 @@ spring:
           - data-id: redis-config.yaml
             group: SHARED_GROUP
             refresh: true
+          - data-id: rabbitmq-config.yaml
+            group: SHARED_GROUP
+            refresh: true
       # Nacos 服务注册与发现
       discovery:
         server-addr: ${NACOS_ADDR:localhost:8848}

@@ -71,7 +71,6 @@ const loadOrders = async () => {
   loading.value = true
   try {
     const res = await orderApi.getLessorList({
-      lessorId: userStore.userInfo.userId,
       page: 1,
       size: 20
     })

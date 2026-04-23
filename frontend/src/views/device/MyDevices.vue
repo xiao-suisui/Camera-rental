@@ -82,7 +82,7 @@ const loading = ref(false)
 const loadDevices = async () => {
   loading.value = true
   try {
-    const res = await getMyDevices(userStore.userInfo.userId)
+    const res = await getMyDevices()
     devices.value = res.data || []
   } catch (error) {
     console.error(error)

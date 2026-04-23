@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
-import { login, register } from '@/api/user'
+import { userApi } from '@/api/user'
 import StorageUtil from '@/utils/storage'
 
 const TOKEN_KEY = 'token'
@@ -31,7 +31,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const doLogin = async (phone, password) => {
-    const res = await login({ phone, password })
+    const res = await userApi.login({ phone, password })
     if (res.code === 0) {
       setToken(res.data.token)
       setRefreshToken(res.data.refreshToken)
@@ -46,7 +46,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const doRegister = async (data) => {
-    const res = await register(data)
+    const res = await userApi.register(data)
     return res.code === 0
   }
 

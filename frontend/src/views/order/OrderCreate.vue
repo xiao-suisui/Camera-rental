@@ -182,7 +182,7 @@ const loadDevice = async () => {
 
 const loadCoupons = async () => {
   try {
-    const { data } = await couponApi.getUserCoupons(userStore.userInfo.userId)
+    const { data } = await couponApi.getUserCoupons()
     // 只显示未使用的优惠券
     availableCoupons.value = data.filter(c => c.useStatus === 'UNUSED')
   } catch (error) {
@@ -215,7 +215,6 @@ const handleSubmit = async () => {
     submitting.value = true
 
     const request = {
-      userId: userStore.userInfo.userId,
       deviceId: device.value.id,
       startTime: dateRange.value[0],
       endTime: dateRange.value[1],

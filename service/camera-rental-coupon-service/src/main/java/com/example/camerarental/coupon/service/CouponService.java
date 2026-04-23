@@ -74,7 +74,10 @@ public class CouponService {
     @Transactional
     @OperationLog(type = "COUPON_RECEIVE", description = "领取优惠券")
     @CacheEvict(value = "coupon", key = "#request.couponId")
-    public void receive(CouponReceiveRequest request) {
+    public void receive(Long userId, CouponReceiveRequest request) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "未获取到用户身份信息");
+        }
         // 1. Redis 预扣库存（原子操作，防超发）
         String stockKey = COUPON_STOCK_KEY + request.getCouponId();
         Long remaining = stringRedisTemplate.opsForValue().decrement(stockKey);
@@ -88,7 +91,7 @@ public class CouponService {
             // 2. 检查是否已领取
             UserCoupon existing = userCouponMapper.selectOne(
                     new LambdaQueryWrapper<UserCoupon>()
-                            .eq(UserCoupon::getUserId, request.getUserId())
+                        .eq(UserCoupon::getUserId, userId)
                             .eq(UserCoupon::getCouponId, request.getCouponId())
             );
             if (existing != null) {
@@ -106,7 +109,7 @@ public class CouponService {
 
             // 4. 写入用户优惠券
             UserCoupon userCoupon = UserCoupon.builder()
-                    .userId(request.getUserId())
+                    .userId(userId)
                     .couponId(request.getCouponId())
                     .receiveTime(LocalDateTime.now())
                     .expireTime(LocalDateTime.now().plusDays(coupon.getValidDays()))
@@ -122,7 +125,7 @@ public class CouponService {
                             .set(Coupon::getUpdatedAt, LocalDateTime.now())
             );
 
-            log.info("Coupon received: userId={}, couponId={}", request.getUserId(), request.getCouponId());
+            log.info("Coupon received: userId={}, couponId={}", userId, request.getCouponId());
         } catch (Exception e) {
             // BusinessException 已在各分支处理了库存回补，其他异常才需要回补
             if (!(e instanceof BusinessException)) {

@@ -8,8 +8,8 @@ export const receiveCoupon = (data) => {
   return request.post('/coupon/receive', data)
 }
 
-export const getUserCoupons = (userId) => {
-  return request.get(`/coupon/user/${userId}`)
+export const getUserCoupons = () => {
+  return request.get('/coupon/user/me')
 }
 
 export const getCouponDetail = (couponId) => {

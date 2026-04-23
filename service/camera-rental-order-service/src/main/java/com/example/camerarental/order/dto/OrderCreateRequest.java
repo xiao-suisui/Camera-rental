@@ -7,9 +7,6 @@ import java.time.LocalDateTime;
 
 @Data
 public class OrderCreateRequest {
-    @NotNull(message = "userId is required")
-    private Long userId;
-
     @NotNull(message = "deviceId is required")
     private Long deviceId;
 

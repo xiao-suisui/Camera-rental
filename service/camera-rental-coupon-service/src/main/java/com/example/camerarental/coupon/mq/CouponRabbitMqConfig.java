@@ -21,16 +21,6 @@ public class CouponRabbitMqConfig {
     }
 
     @Bean
-    public TopicExchange orderTopicExchange() {
-        return new TopicExchange(MqConstants.ORDER_TOPIC_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public DirectExchange orderDeadLetterExchange() {
-        return new DirectExchange(MqConstants.ORDER_DLX_EXCHANGE, true, false);
-    }
-
-    @Bean
     public Queue couponSyncQueue() {
         return QueueBuilder.durable(MqConstants.COUPON_SYNC_QUEUE)
                 .withArgument("x-dead-letter-exchange", MqConstants.ORDER_DLX_EXCHANGE)
@@ -44,16 +34,16 @@ public class CouponRabbitMqConfig {
     }
 
     @Bean
-    public Binding couponSyncBinding() {
-        return BindingBuilder.bind(couponSyncQueue())
-                .to(orderTopicExchange())
+    public Binding couponSyncBinding(Queue couponSyncQueue, TopicExchange orderTopicExchange) {
+        return BindingBuilder.bind(couponSyncQueue)
+                .to(orderTopicExchange)
                 .with(MqConstants.ORDER_CANCELLED_ROLLBACK_COUPON_KEY);
     }
 
     @Bean
-    public Binding couponSyncDlqBinding() {
-        return BindingBuilder.bind(couponSyncDlq())
-                .to(orderDeadLetterExchange())
+    public Binding couponSyncDlqBinding(Queue couponSyncDlq, DirectExchange orderDeadLetterExchange) {
+        return BindingBuilder.bind(couponSyncDlq)
+                .to(orderDeadLetterExchange)
                 .with(MqConstants.COUPON_SYNC_DLQ_ROUTING_KEY);
     }
 }

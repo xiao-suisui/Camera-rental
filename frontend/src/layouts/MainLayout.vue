@@ -144,7 +144,6 @@ const loadUnreadCount = async () => {
   if (!userStore.token || !userStore.userInfo.userId) return
   try {
     const res = await axios.get(`/api/message/unread-count`, {
-      params: { userId: userStore.userInfo.userId },
       headers: { 'Authorization': `Bearer ${userStore.token}` },
       timeout: 5000
     })

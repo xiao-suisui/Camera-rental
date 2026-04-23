@@ -347,33 +347,6 @@ private void verifyOrderOwner(Order order, Long currentUserId, boolean mustBeLes
 - `views/coupon/*.vue` — 纯 `couponApi.xxx`
 - `views/user/ProfileEdit.vue` — `userApi.updateProfile`
 
----
-
-## Step 11：数据库分库规划文档（仅文档）
-
-**目标：** 输出规划文档，为后续拆分铺路
-
-### 11.1 创建文档
-
-**文件：** `docs/optimization/数据库分库规划.md`
-
-内容大纲：
-
-1. **当前现状** — 单库 `camera_rental`，所有服务共享
-2. **分库方案**
-   - `camera_rental_user` → `user`, `message`, `device_favorite`, `operation_log`
-   - `camera_rental_device` → `device`
-   - `camera_rental_order` → `order`, `evaluation`
-   - `camera_rental_coupon` → `coupon`, `user_coupon`
-3. **需移除的跨库外键**
-   - `fk_device_user`, `fk_order_user`, `fk_order_device`, `fk_order_lessor`, `fk_order_coupon`
-   - `fk_eval_evaluator`, `fk_eval_evaluated`, `fk_eval_device`
-   - `fk_user_coupon_user`, `fk_user_coupon_order`
-   - `fk_favorite_user`, `fk_favorite_device`, `fk_message_user`
-4. **迁移步骤** — Flyway 脚本、Nacos datasource 独立配置、Feign 替代 JOIN
-5. **风险和回退方案**
-
----
 
 ## 执行优先级
 

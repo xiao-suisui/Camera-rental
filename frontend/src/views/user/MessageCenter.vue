@@ -122,7 +122,7 @@ onMounted(async () => {
 const loadMessages = async () => {
   loading.value = true
   try {
-    const { data } = await messageApi.getList(userStore.userInfo.userId)
+    const { data } = await messageApi.getList()
     messages.value = data || []
   } catch (error) {
     ElMessage.error('加载消息列表失败')
@@ -134,7 +134,7 @@ const loadMessages = async () => {
 
 const loadUnreadCount = async () => {
   try {
-    const { data } = await messageApi.getUnreadCount(userStore.userInfo.userId)
+    const { data } = await messageApi.getUnreadCount()
     unreadCount.value = data || 0
   } catch (error) {
     console.error('获取未读数量失败', error)
@@ -159,7 +159,7 @@ const handleMarkRead = async (message) => {
 
 const handleMarkAllRead = async () => {
   try {
-    await messageApi.markAllRead(userStore.userInfo.userId)
+    await messageApi.markAllRead()
     ElMessage.success('已全部标记为已读')
     await loadMessages()
     unreadCount.value = 0

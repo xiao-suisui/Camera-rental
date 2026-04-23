@@ -5,9 +5,6 @@ import lombok.Data;
 
 @Data
 public class CouponReceiveRequest {
-    @NotNull(message = "userId is required")
-    private Long userId;
-
     @NotNull(message = "couponId is required")
     private Long couponId;
 }

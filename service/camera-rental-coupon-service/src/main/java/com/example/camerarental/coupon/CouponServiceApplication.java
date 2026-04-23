@@ -10,7 +10,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 @SpringBootApplication(scanBasePackages = "com.example.camerarental")
 @EnableDiscoveryClient
 @EnableFeignClients
-@MapperScan("com.example.camerarental.coupon.mapper")
+@MapperScan({"com.example.camerarental.coupon.mapper", "com.example.camerarental.common.mapper"})
 public class CouponServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(CouponServiceApplication.class, args);

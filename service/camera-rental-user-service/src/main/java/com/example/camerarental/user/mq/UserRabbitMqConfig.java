@@ -21,16 +21,6 @@ public class UserRabbitMqConfig {
     }
 
     @Bean
-    public TopicExchange orderTopicExchange() {
-        return new TopicExchange(MqConstants.ORDER_TOPIC_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public DirectExchange orderDeadLetterExchange() {
-        return new DirectExchange(MqConstants.ORDER_DLX_EXCHANGE, true, false);
-    }
-
-    @Bean
     public Queue userNotifyQueue() {
         return QueueBuilder.durable(MqConstants.USER_NOTIFY_QUEUE)
                 .withArgument("x-dead-letter-exchange", MqConstants.ORDER_DLX_EXCHANGE)
@@ -44,16 +34,16 @@ public class UserRabbitMqConfig {
     }
 
     @Bean
-    public Binding userNotifyBinding() {
-        return BindingBuilder.bind(userNotifyQueue())
-                .to(orderTopicExchange())
+    public Binding userNotifyBinding(Queue userNotifyQueue, TopicExchange orderTopicExchange) {
+        return BindingBuilder.bind(userNotifyQueue)
+                .to(orderTopicExchange)
                 .with(MqConstants.ORDER_NOTIFY_USER_ROUTING_KEY);
     }
 
     @Bean
-    public Binding userNotifyDlqBinding() {
-        return BindingBuilder.bind(userNotifyDlq())
-                .to(orderDeadLetterExchange())
+    public Binding userNotifyDlqBinding(Queue userNotifyDlq, DirectExchange orderDeadLetterExchange) {
+        return BindingBuilder.bind(userNotifyDlq)
+                .to(orderDeadLetterExchange)
                 .with(MqConstants.USER_NOTIFY_DLQ_ROUTING_KEY);
     }
 }

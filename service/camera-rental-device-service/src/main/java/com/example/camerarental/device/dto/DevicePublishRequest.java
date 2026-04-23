@@ -11,9 +11,6 @@ import java.util.List;
 
 @Data
 public class DevicePublishRequest {
-    @NotNull(message = "userId is required")
-    private Long userId;
-
     @NotBlank(message = "title is required")
     @Size(max = 128)
     private String title;

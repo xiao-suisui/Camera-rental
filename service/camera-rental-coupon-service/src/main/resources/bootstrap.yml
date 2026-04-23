@@ -33,6 +33,9 @@ spring:
           - data-id: redis-config.yaml
             group: SHARED_GROUP
             refresh: true
+          - data-id: rabbitmq-config.yaml
+            group: SHARED_GROUP
+            refresh: true
           - data-id: minio-config.yaml
             group: SHARED_GROUP
             refresh: true
