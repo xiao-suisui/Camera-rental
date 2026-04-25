@@ -1,5 +1,6 @@
 package com.example.camerarental.user.controller;
 
+import com.example.camerarental.common.annotation.AdminOnly;
 import com.example.camerarental.common.result.Result;
 import com.example.camerarental.user.entity.Message;
 import com.example.camerarental.user.service.MessageService;
@@ -65,6 +66,7 @@ public class MessageController {
     /**
      * 发送消息（内部接口，供其他服务调用）
      */
+    @AdminOnly
     @PostMapping("/send")
     public Result<Void> sendMessage(
             @RequestParam Long userId,

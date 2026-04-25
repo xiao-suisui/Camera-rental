@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.camerarental.common.annotation.OperationLog;
+import com.example.camerarental.common.enums.CouponStatus;
 import com.example.camerarental.common.enums.DepositStatus;
 import com.example.camerarental.common.enums.DeviceStatus;
 import com.example.camerarental.common.enums.ErrorCode;
 import com.example.camerarental.common.enums.OrderStatus;
 import com.example.camerarental.common.exception.BusinessException;
+import com.example.camerarental.common.result.Result;
 import com.example.camerarental.order.dto.CouponDTO;
 import com.example.camerarental.order.dto.DeviceDTO;
 import com.example.camerarental.order.dto.OrderCreateRequest;
@@ -43,14 +45,27 @@ public class OrderService {
         if (operatorUserId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "未获取到用户身份信息");
         }
+        if (request.getStartTime().isAfter(request.getEndTime())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "租赁开始时间不能晚于结束时间");
+        }
+        if (request.getEndTime().isBefore(LocalDateTime.now())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "租赁结束时间不能早于当前时间");
+        }
 
         // 1. 查询设备信息
-        DeviceDTO device = deviceFeignClient.getById(request.getDeviceId()).getData();
+        Result<DeviceDTO> deviceResult = deviceFeignClient.getById(request.getDeviceId());
+        if (deviceResult == null || deviceResult.getCode() == null || deviceResult.getCode() != 0) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "设备服务不可用，暂时无法创建订单");
+        }
+        DeviceDTO device = deviceResult.getData();
         if (device == null) {
             throw new BusinessException(ErrorCode.DEVICE_NOT_FOUND);
         }
         if (!DeviceStatus.ACTIVE.getValue().equals(device.getStatus())) {
             throw new BusinessException(ErrorCode.DEVICE_NOT_AVAILABLE);
+        }
+        if (operatorUserId.equals(device.getUserId())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "不能租赁自己发布的设备");
         }
 
         // 2. 计算租金
@@ -61,11 +76,21 @@ public class OrderService {
 
         // 3. 应用优惠券
         if (request.getCouponId() != null) {
-            CouponDTO coupon = couponFeignClient.getById(request.getCouponId()).getData();
-            if (coupon != null) {
-                if (coupon.getThreshold() != null && totalRent.compareTo(coupon.getThreshold()) < 0) {
-                    throw new BusinessException(ErrorCode.COUPON_NOT_MEET_THRESHOLD);
-                }
+            Result<CouponDTO> couponResult = couponFeignClient.getById(request.getCouponId());
+            if (couponResult == null || couponResult.getCode() == null || couponResult.getCode() != 0) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "优惠券服务不可用，暂时无法校验优惠券");
+            }
+            CouponDTO coupon = couponResult.getData();
+            if (coupon == null) {
+                throw new BusinessException(ErrorCode.COUPON_NOT_FOUND);
+            }
+            if (!CouponStatus.PUBLISHED.getValue().equals(coupon.getStatus())) {
+                throw new BusinessException(ErrorCode.COUPON_EXPIRED, "优惠券不可用或已下架");
+            }
+            if (coupon.getThreshold() != null && totalRent.compareTo(coupon.getThreshold()) < 0) {
+                throw new BusinessException(ErrorCode.COUPON_NOT_MEET_THRESHOLD);
+            }
+            if (coupon.getDenomination() != null) {
                 discountAmount = coupon.getDenomination();
             }
         }

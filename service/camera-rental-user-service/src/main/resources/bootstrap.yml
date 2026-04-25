@@ -18,7 +18,7 @@ spring:
           - data-id: common-config.yaml
             group: SHARED_GROUP
             refresh: true
-          - data-id: cipher-config.yaml
+          - data-id: secret-config.yaml
             group: SHARED_GROUP
             refresh: true
           - data-id: datasource-config.yaml

@@ -166,6 +166,38 @@ docker-compose ps
 docker-compose logs -f gateway
 ```
 
+### 部署前必填环境变量（本轮新增）
+
+请先基于 `service/.env.example` 生成 `.env`，并至少填写以下变量：
+
+```env
+# DB/JWT/RabbitMQ/MinIO/Redis/Druid（应用侧）
+CAMERA_RENTAL_DB_PASSWORD=
+CAMERA_RENTAL_JWT_SECRET=
+CAMERA_RENTAL_RABBITMQ_USER=
+CAMERA_RENTAL_RABBITMQ_PASSWORD=
+CAMERA_RENTAL_MINIO_ACCESS_KEY=
+CAMERA_RENTAL_MINIO_SECRET_KEY=
+CAMERA_RENTAL_REDIS_PASSWORD=
+CAMERA_RENTAL_DRUID_USERNAME=
+CAMERA_RENTAL_DRUID_PASSWORD=
+CAMERA_RENTAL_DRUID_ALLOW_IP=127.0.0.1
+
+# RabbitMQ 容器初始化账号（建议与上面保持一致）
+RABBITMQ_USER=
+RABBITMQ_PASSWORD=
+RABBITMQ_VHOST=/camera-rental
+```
+
+推荐流程：
+
+```bash
+cd service
+cp .env.example .env
+# 填写 .env 后执行
+docker-compose --env-file .env up -d
+```
+
 ### MQ 拓扑联调检查
 
 RabbitMQ 启动后，可执行以下脚本核对 exchange/queue/binding：

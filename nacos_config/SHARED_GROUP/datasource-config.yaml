@@ -16,6 +16,7 @@ spring:
       time-between-eviction-runs-millis: 60000
       min-evictable-idle-time-millis: 300000
       validation-query: SELECT 1
+      validation-query-timeout: 5000
       test-while-idle: true
       test-on-borrow: false
       test-on-return: false
@@ -32,7 +33,7 @@ spring:
         enabled: ${DRUID_STAT_VIEW_ENABLED:false}
         url-pattern: /druid/*
         reset-enable: false
-        login-username: ${DRUID_USERNAME:root}
-        login-password: ${DRUID_PASSWORD:change-me}
+        login-username: ${DRUID_USERNAME}
+        login-password: ${DRUID_PASSWORD}
         # 多个IP使用英文逗号分隔；默认仅允许本机
         allow: ${DRUID_ALLOW_IP:127.0.0.1}
