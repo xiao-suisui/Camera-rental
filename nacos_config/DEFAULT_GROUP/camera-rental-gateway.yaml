@@ -62,6 +62,13 @@ spring:
           filters:
             - StripPrefix=0
           order: 100
+        - id: chat-service
+          uri: lb://camera-rental-user-service
+          predicates:
+            - Path=/chat/**,/ws/chat/**
+          filters:
+            - StripPrefix=0
+          order: 100
 
       globalcors:
         cors-configurations:

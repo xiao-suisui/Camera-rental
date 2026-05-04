@@ -109,6 +109,18 @@ const routes = [
         name: 'FavoriteList',
         component: () => import('@/views/user/FavoriteList.vue'),
         meta: { requireAuth: true }
+      },
+      {
+        path: 'chat',
+        name: 'ChatList',
+        component: () => import('@/views/chat/ChatList.vue'),
+        meta: { requireAuth: true }
+      },
+      {
+        path: 'chat/:conversationId',
+        name: 'ChatRoom',
+        component: () => import('@/views/chat/ChatRoom.vue'),
+        meta: { requireAuth: true }
       }
     ]
   },
@@ -153,6 +165,11 @@ const routes = [
         component: () => import('@/views/admin/AdminOrderList.vue')
       }
     ]
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('@/views/NotFound.vue')
   }
 ]
 
@@ -166,14 +183,14 @@ router.beforeEach((to, from, next) => {
 
   // 需要登录
   if (to.meta.requireAuth && !userStore.token) {
-    next('/login')
+    next({ path: '/login', query: { redirect: to.fullPath } })
     return
   }
 
   // 需要管理员权限
   if (to.meta.requireAdmin) {
     if (!userStore.token) {
-      next('/login')
+      next({ path: '/login', query: { redirect: to.fullPath } })
       return
     }
     if (userStore.userInfo.role !== 'ADMIN') {

@@ -7,8 +7,8 @@ import com.example.camerarental.common.exception.BusinessException;
 import com.example.camerarental.common.result.Result;
 import com.example.camerarental.coupon.dto.CouponCreateRequest;
 import com.example.camerarental.coupon.dto.CouponReceiveRequest;
+import com.example.camerarental.coupon.dto.UserCouponDTO;
 import com.example.camerarental.coupon.entity.Coupon;
-import com.example.camerarental.coupon.entity.UserCoupon;
 import com.example.camerarental.coupon.service.CouponService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -39,12 +39,12 @@ public class CouponController {
     }
 
     @GetMapping("/user/me")
-    public Result<List<UserCoupon>> listMyCoupons(@RequestHeader("X-User-Id") Long userId) {
+    public Result<List<UserCouponDTO>> listMyCoupons(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(couponService.listUserCoupons(userId));
     }
 
     @GetMapping("/user/{userId}")
-    public Result<List<UserCoupon>> listUserCoupons(
+    public Result<List<UserCouponDTO>> listUserCoupons(
             @PathVariable Long userId,
             @RequestHeader("X-User-Id") Long operatorUserId,
             @RequestHeader(value = "X-User-Role", required = false) String operatorRole) {

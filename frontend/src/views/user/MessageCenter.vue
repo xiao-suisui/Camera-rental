@@ -73,6 +73,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { messageApi } from '@/api/message'
+import eventBus from '@/utils/eventBus'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
@@ -152,6 +153,7 @@ const handleMarkRead = async (message) => {
     await messageApi.markRead(message.id)
     message.readStatus = 'READ'
     unreadCount.value = Math.max(0, unreadCount.value - 1)
+    eventBus.emit('message:updated')
   } catch (error) {
     console.error('标记已读失败', error)
   }
@@ -163,6 +165,7 @@ const handleMarkAllRead = async () => {
     ElMessage.success('已全部标记为已读')
     await loadMessages()
     unreadCount.value = 0
+    eventBus.emit('message:updated')
   } catch (error) {
     ElMessage.error('操作失败')
   }
@@ -180,6 +183,7 @@ const handleDelete = async (messageId) => {
     ElMessage.success('删除成功')
     await loadMessages()
     await loadUnreadCount()
+    eventBus.emit('message:updated')
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('删除失败')

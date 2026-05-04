@@ -4,8 +4,8 @@ export const evaluationApi = {
   // 创建评价
   create: (data) => request.post('/evaluation/create', data),
 
-  // 查看设备的评价列表
-  getByDevice: (deviceId) => request.get(`/evaluation/device/${deviceId}`),
+  // 查看设备的评价列表（分页）
+  getByDevice: (deviceId, params) => request.get(`/evaluation/device/${deviceId}`, { params }),
 
   // 查看我收到的评价
   getMine: () => request.get('/evaluation/user/me'),
@@ -22,6 +22,9 @@ export const evaluationApi = {
   // 检查是否可以评价
   canEvaluate: (orderId) => request.get('/evaluation/can-evaluate', {
     params: { orderId }
-  })
+  }),
+
+  // 商家回复评价
+  reply: (evaluationId, reply) => request.post(`/evaluation/${evaluationId}/reply`, { reply })
 }
 

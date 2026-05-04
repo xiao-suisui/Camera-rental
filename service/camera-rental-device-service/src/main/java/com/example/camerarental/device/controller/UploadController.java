@@ -27,10 +27,13 @@ public class UploadController {
     private static final List<String> ALLOWED_TYPES = List.of("image/jpeg", "image/jpg", "image/png", "image/webp");
 
     @PostMapping("/image")
-    public Result<String> uploadImage(@RequestParam("file") MultipartFile file) {
+    public Result<String> uploadImage(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam("file") MultipartFile file) {
         validateFile(file);
         try {
             String url = minioService.uploadFile(file);
+            log.info("Image uploaded by userId={}", userId);
             return Result.success(url);
         } catch (Exception e) {
             log.error("图片上传失败", e);
@@ -39,7 +42,9 @@ public class UploadController {
     }
 
     @PostMapping("/images")
-    public Result<List<String>> uploadImages(@RequestParam("files") MultipartFile[] files) {
+    public Result<List<String>> uploadImages(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam("files") MultipartFile[] files) {
         if (files.length > 9) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "最多上传9张图片");
         }
@@ -53,6 +58,7 @@ public class UploadController {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "图片上传失败: " + file.getOriginalFilename());
             }
         }
+        log.info("Images uploaded: count={}, userId={}", urls.size(), userId);
         return Result.success(urls);
     }
 

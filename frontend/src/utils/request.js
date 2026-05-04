@@ -53,12 +53,12 @@ request.interceptors.response.use(
     // Token 过期，尝试用 RefreshToken 静默刷新
     if (error.response?.status === 401 && userStore.refreshToken && !originalRequest._retry) {
       if (isRefreshing) {
-        // 正在刷新中，把请求加入等待队列
-        return new Promise((resolve) => {
-          pendingRequests.push(() => {
-            originalRequest.headers['Authorization'] = `Bearer ${userStore.token}`
-            resolve(request(originalRequest))
-          })
+        // 正在刷新中，把请求加入等待队列（同时保存 reject 以便刷新失败时通知）
+        return new Promise((resolve, reject) => {
+          pendingRequests.push({ resolve, reject })
+        }).then(() => {
+          originalRequest.headers['Authorization'] = `Bearer ${userStore.token}`
+          return request(originalRequest)
         })
       }
 
@@ -78,15 +78,21 @@ request.interceptors.response.use(
           userStore.setUserInfo({ userId, nickname, role })
 
           // 重放等待队列
-          pendingRequests.forEach(cb => cb())
+          pendingRequests.forEach(({ resolve }) => resolve())
           pendingRequests = []
 
           // 重试原始请求
           originalRequest.headers['Authorization'] = `Bearer ${token}`
           return request(originalRequest)
         }
+
+        // Refresh endpoint returned non-0 code — treat as failure
+        pendingRequests.forEach(({ reject }) => reject(new Error('Token refresh failed')))
+        pendingRequests = []
       } catch (refreshError) {
-        // 刷新也失败（RefreshToken 无效/过期），退出登录
+        // 网络错误或其他异常
+        pendingRequests.forEach(({ reject }) => reject(refreshError))
+        pendingRequests = []
       } finally {
         isRefreshing = false
       }

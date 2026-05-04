@@ -104,12 +104,12 @@ public class DeviceController {
     }
 
     @GetMapping("/stats/count")
-    public Result<Long> getDeviceCount() {
+    public Result<Long> getDeviceCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(deviceService.countDevices());
     }
 
     @GetMapping("/stats/pending")
-    public Result<Long> getPendingCount() {
+    public Result<Long> getPendingCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(deviceService.countPendingAudit());
     }
 

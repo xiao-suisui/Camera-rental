@@ -47,6 +47,7 @@ frontend/node_modules/
 
 ### 敏感配置（Nacos 密钥文件，勿提交真实密码） ###
 nacos_config/SHARED_GROUP/cipher-config.yaml
+nacos_config/SHARED_GROUP/cipher-config-dev.yaml
 
 ### 日志 ###
 *.log

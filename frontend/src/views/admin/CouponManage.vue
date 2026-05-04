@@ -8,7 +8,7 @@
       </div>
 
       <!-- 优惠券列表 -->
-      <el-table :data="coupons" v-loading="loading" stripe style="width: 100%">
+      <el-table :data="coupons" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column label="类型" width="120">
           <template #default="{ row }">
@@ -35,7 +35,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" width="180" />
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作"  fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="row.status === 'PUBLISHED'"
@@ -174,6 +174,9 @@ const getStatusType = (status) => {
   display: flex;
   justify-content: flex-end;
   margin-bottom: 16px;
+}
+.el-table {
+  width: 100%;
 }
 </style>
 

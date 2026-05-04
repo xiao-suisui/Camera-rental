@@ -9,6 +9,7 @@ import com.example.camerarental.common.exception.BusinessException;
 import com.example.camerarental.common.mq.OrderCancelledEvent;
 import com.example.camerarental.coupon.dto.CouponCreateRequest;
 import com.example.camerarental.coupon.dto.CouponReceiveRequest;
+import com.example.camerarental.coupon.dto.UserCouponDTO;
 import com.example.camerarental.coupon.entity.Coupon;
 import com.example.camerarental.coupon.entity.UserCoupon;
 import com.example.camerarental.coupon.mapper.CouponMapper;
@@ -135,12 +136,8 @@ public class CouponService {
         }
     }
 
-    public List<UserCoupon> listUserCoupons(Long userId) {
-        return userCouponMapper.selectList(
-                new LambdaQueryWrapper<UserCoupon>()
-                        .eq(UserCoupon::getUserId, userId)
-                        .orderByDesc(UserCoupon::getReceiveTime)
-        );
+    public List<UserCouponDTO> listUserCoupons(Long userId) {
+        return userCouponMapper.selectUserCouponsWithDetail(userId);
     }
 
     @Cacheable(value = "coupon", key = "#couponId")

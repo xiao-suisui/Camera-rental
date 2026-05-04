@@ -1,6 +1,7 @@
 package com.example.camerarental.order.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.camerarental.common.annotation.OperationLog;
@@ -132,14 +133,14 @@ public class OrderService {
             throw new BusinessException(ErrorCode.ORDER_NOT_FOUND);
         }
         checkOperatorPermission(operatorUserId, operatorRole, order.getUserId());
-        if (!OrderStatus.PENDING_PAY.getValue().equals(order.getStatus())) {
-            throw new BusinessException(ErrorCode.ORDER_STATUS_ERROR, "订单状态异常，无法支付");
-        }
 
-        order.setStatus(OrderStatus.PAID.getValue());
-        order.setDepositStatus(DepositStatus.PAID.getValue());
-        order.setUpdatedAt(LocalDateTime.now());
-        orderMapper.updateById(order);
+        int rows = orderMapper.updateStatusAndDepositIf(orderId,
+                OrderStatus.PENDING_PAY.getValue(),
+                OrderStatus.PAID.getValue(),
+                DepositStatus.PAID.getValue());
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_ERROR, "订单状态已变更，无法支付");
+        }
         log.info("Order paid: orderId={}", orderId);
     }
 
@@ -151,14 +152,16 @@ public class OrderService {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "订单不存在");
         }
         checkOperatorPermission(operatorUserId, operatorRole, order.getLessorId());
-        if (!OrderStatus.PAID.getValue().equals(order.getStatus())) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单状态错误，无法发货");
-        }
 
-        order.setStatus(OrderStatus.TO_SHIP.getValue());
-        order.setVirtualOrderNo(trackingNumber);
-        order.setUpdatedAt(LocalDateTime.now());
-        orderMapper.updateById(order);
+        int rows = orderMapper.update(null, new LambdaUpdateWrapper<Order>()
+                .eq(Order::getId, orderId)
+                .eq(Order::getStatus, OrderStatus.PAID.getValue())
+                .set(Order::getStatus, OrderStatus.TO_SHIP.getValue())
+                .set(Order::getVirtualOrderNo, trackingNumber)
+                .set(Order::getUpdatedAt, LocalDateTime.now()));
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单状态已变更，无法发货");
+        }
         log.info("Order shipped: orderId={}, trackingNumber={}", orderId, trackingNumber);
 
         // 通过 Outbox + MQ 异步通知租用者
@@ -181,13 +184,12 @@ public class OrderService {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "订单不存在");
         }
         checkOperatorPermission(operatorUserId, operatorRole, order.getUserId());
-        if (!OrderStatus.TO_SHIP.getValue().equals(order.getStatus())) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单状态错误，无法确认收货");
-        }
 
-        order.setStatus(OrderStatus.TO_RETURN.getValue());
-        order.setUpdatedAt(LocalDateTime.now());
-        orderMapper.updateById(order);
+        int rows = orderMapper.updateStatusIf(orderId,
+                OrderStatus.TO_SHIP.getValue(), OrderStatus.TO_RETURN.getValue());
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单状态已变更，无法确认收货");
+        }
         log.info("Order received: orderId={}", orderId);
 
         // 通过 Outbox + MQ 异步通知出租者
@@ -210,19 +212,17 @@ public class OrderService {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "订单不存在");
         }
         checkOperatorPermission(operatorUserId, operatorRole, order.getUserId());
-        if (!OrderStatus.TO_RETURN.getValue().equals(order.getStatus())) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单状态错误，无法申请归还");
-        }
 
         // 检查是否逾期
-        if (LocalDateTime.now().isAfter(order.getEndTime())) {
-            order.setStatus(OrderStatus.OVERDUE.getValue());
-        } else {
-            order.setStatus(OrderStatus.RETURNED.getValue());
-        }
+        String newStatus = LocalDateTime.now().isAfter(order.getEndTime())
+                ? OrderStatus.OVERDUE.getValue()
+                : OrderStatus.RETURNED.getValue();
 
-        order.setUpdatedAt(LocalDateTime.now());
-        orderMapper.updateById(order);
+        int rows = orderMapper.updateStatusIf(orderId,
+                OrderStatus.TO_RETURN.getValue(), newStatus);
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单状态已变更，无法申请归还");
+        }
         log.info("Order return applied: orderId={}, trackingNumber={}", orderId, trackingNumber);
 
         // 通过 Outbox + MQ 异步通知出租者
@@ -245,15 +245,17 @@ public class OrderService {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "订单不存在");
         }
         checkOperatorPermission(operatorUserId, operatorRole, order.getLessorId());
-        if (!OrderStatus.RETURNED.getValue().equals(order.getStatus())
-                && !OrderStatus.OVERDUE.getValue().equals(order.getStatus())) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单状态错误，无法确认归还");
-        }
 
-        order.setStatus(OrderStatus.FINISHED.getValue());
-        order.setDepositStatus(DepositStatus.REFUNDED.getValue());
-        order.setUpdatedAt(LocalDateTime.now());
-        orderMapper.updateById(order);
+        // Accept both RETURNED and OVERDUE as valid current statuses
+        int rows = orderMapper.update(null, new LambdaUpdateWrapper<Order>()
+                .eq(Order::getId, orderId)
+                .in(Order::getStatus, OrderStatus.RETURNED.getValue(), OrderStatus.OVERDUE.getValue())
+                .set(Order::getStatus, OrderStatus.FINISHED.getValue())
+                .set(Order::getDepositStatus, DepositStatus.REFUNDED.getValue())
+                .set(Order::getUpdatedAt, LocalDateTime.now()));
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单状态已变更，无法确认归还");
+        }
         log.info("Order return confirmed: orderId={}, condition={}", orderId, condition);
 
         // 通过 Outbox + MQ 异步通知租用者
@@ -276,13 +278,12 @@ public class OrderService {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "订单不存在");
         }
         checkOperatorPermission(operatorUserId, operatorRole, order.getUserId());
-        if (!OrderStatus.PENDING_PAY.getValue().equals(order.getStatus())) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "只能取消待支付订单");
-        }
 
-        order.setStatus(OrderStatus.CANCELED.getValue());
-        order.setUpdatedAt(LocalDateTime.now());
-        orderMapper.updateById(order);
+        int rows = orderMapper.updateStatusIf(orderId,
+                OrderStatus.PENDING_PAY.getValue(), OrderStatus.CANCELED.getValue());
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单状态已变更，只能取消待支付订单");
+        }
 
         // 通过 Outbox + MQ 发送取消补偿事件（释放设备库存/回滚优惠券）
         orderNotificationProducer.sendOrderCancelledCompensation(

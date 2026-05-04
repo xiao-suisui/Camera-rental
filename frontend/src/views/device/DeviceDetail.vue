@@ -42,6 +42,14 @@
                 <el-icon><StarFilled v-if="isCollected" /><Star v-else /></el-icon>
                 收藏
               </el-button>
+              <el-button
+                size="large"
+                @click="handleContactSeller"
+                v-if="userStore.token && device.userId !== userStore.userInfo.userId"
+              >
+                <el-icon><ChatDotRound /></el-icon>
+                联系卖家
+              </el-button>
             </div>
           </div>
         </el-col>
@@ -58,7 +66,14 @@
 
       <!-- 评价列表 -->
       <div class="evaluation-section">
-        <h3>用户评价</h3>
+        <div class="evaluation-title-row">
+          <h3>用户评价</h3>
+          <div v-if="evaluations.length > 0" class="avg-score">
+            <span class="avg-value">{{ avgScore }}</span>
+            <el-rate :model-value="Number(avgScore)" disabled allow-half />
+            <span class="avg-count">（{{ totalEvaluationCount }} 条评价）</span>
+          </div>
+        </div>
         <div v-loading="evaluationsLoading">
           <el-empty v-if="evaluations.length === 0" description="暂无评价" />
 
@@ -67,6 +82,15 @@
               <div class="evaluation-header">
                 <el-rate v-model="evaluation.score" disabled />
                 <span class="evaluation-time">{{ formatTime(evaluation.createdAt) }}</span>
+                <el-button
+                  v-if="userStore.token && evaluation.evaluatorId === userStore.userInfo.userId"
+                  type="danger"
+                  link
+                  size="small"
+                  @click="handleDeleteEvaluation(evaluation.id)"
+                >
+                  删除
+                </el-button>
               </div>
               <div class="evaluation-content">{{ evaluation.content }}</div>
               <div v-if="evaluation.imagePaths" class="evaluation-images">
@@ -79,6 +103,41 @@
                   :preview-src-list="evaluation.imagePaths.split(',')"
                 />
               </div>
+              <!-- 商家回复 -->
+              <div v-if="evaluation.reply" class="evaluation-reply">
+                <div class="reply-label">商家回复：</div>
+                <div class="reply-content">{{ evaluation.reply }}</div>
+              </div>
+              <!-- 回复表单（仅设备拥有者可见且未回复时） -->
+              <div v-if="isOwner && !evaluation.reply" class="reply-form">
+                <el-input
+                  v-model="replyText[evaluation.id]"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="回复该评价..."
+                  maxlength="500"
+                  show-word-limit
+                />
+                <el-button
+                  type="primary"
+                  size="small"
+                  style="margin-top: 8px"
+                  :loading="replying === evaluation.id"
+                  @click="handleReply(evaluation.id)"
+                >
+                  回复
+                </el-button>
+              </div>
+            </div>
+
+            <div v-if="evaluationsTotal > evaluationsSize" class="evaluation-pagination">
+              <el-pagination
+                :current-page="evaluationsPage"
+                :page-size="evaluationsSize"
+                :total="evaluationsTotal"
+                layout="prev, pager, next"
+                @current-change="handleEvaluationsPageChange"
+              />
             </div>
           </div>
         </div>
@@ -93,9 +152,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { getDeviceDetail } from '@/api/device'
 import { favoriteApi } from '@/api/favorite'
 import { evaluationApi } from '@/api/evaluation'
+import { chatApi } from '@/api/chat'
 import { useUserStore } from '@/stores/user'
-import { ElMessage } from 'element-plus'
-import { Star, StarFilled, Location } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Star, StarFilled, Location, ChatDotRound } from '@element-plus/icons-vue'
 import { formatDate } from '@/utils/date'
 
 const route = useRoute()
@@ -107,10 +167,27 @@ const device = ref({})
 const isCollected = ref(false)
 const evaluations = ref([])
 const evaluationsLoading = ref(false)
+const evaluationsTotal = ref(0)
+const evaluationsPage = ref(1)
+const evaluationsSize = ref(10)
+const replyText = ref({})
+const replying = ref(null)
 
 const images = computed(() => {
   return device.value.imagePaths?.split(',') || []
 })
+
+const isOwner = computed(() => {
+  return userStore.token && device.value.userId === userStore.userInfo.userId
+})
+
+const avgScore = computed(() => {
+  if (evaluations.value.length === 0) return 0
+  const sum = evaluations.value.reduce((acc, e) => acc + (e.score || 0), 0)
+  return (sum / evaluations.value.length).toFixed(1)
+})
+
+const totalEvaluationCount = computed(() => evaluationsTotal.value || evaluations.value.length)
 
 const loadDeviceDetail = async () => {
   loading.value = true
@@ -136,12 +213,57 @@ const loadDeviceDetail = async () => {
 const loadEvaluations = async () => {
   evaluationsLoading.value = true
   try {
-    const { data } = await evaluationApi.getByDevice(route.params.id)
-    evaluations.value = data || []
+    const { data } = await evaluationApi.getByDevice(route.params.id, {
+      page: evaluationsPage.value,
+      size: evaluationsSize.value
+    })
+    evaluations.value = data.records || []
+    evaluationsTotal.value = data.total || 0
   } catch (error) {
     console.error('加载评价失败', error)
   } finally {
     evaluationsLoading.value = false
+  }
+}
+
+const handleEvaluationsPageChange = (page) => {
+  evaluationsPage.value = page
+  loadEvaluations()
+}
+
+const handleReply = async (evaluationId) => {
+  const text = replyText.value[evaluationId]
+  if (!text || !text.trim()) {
+    ElMessage.warning('请输入回复内容')
+    return
+  }
+  replying.value = evaluationId
+  try {
+    await evaluationApi.reply(evaluationId, text.trim())
+    ElMessage.success('回复成功')
+    replyText.value[evaluationId] = ''
+    await loadEvaluations()
+  } catch (error) {
+    ElMessage.error(error.message || '回复失败')
+  } finally {
+    replying.value = null
+  }
+}
+
+const handleDeleteEvaluation = async (evaluationId) => {
+  try {
+    await ElMessageBox.confirm('确认删除该评价？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await evaluationApi.delete(evaluationId)
+    ElMessage.success('删除成功')
+    await loadEvaluations()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '删除失败')
+    }
   }
 }
 
@@ -191,6 +313,23 @@ const handleCollect = async () => {
     }
   } catch (error) {
     ElMessage.error(error.message || '操作失败')
+  }
+}
+
+const handleContactSeller = async () => {
+  if (!userStore.token) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  try {
+    const res = await chatApi.getOrCreateConversation({
+      otherUserId: device.value.userId,
+      deviceId: device.value.id
+    })
+    router.push(`/chat/${res.data.id}`)
+  } catch (error) {
+    ElMessage.error('创建会话失败')
   }
 }
 
@@ -284,7 +423,31 @@ onMounted(() => {
   font-size: 18px;
   font-weight: 600;
   color: #1a1a2e;
+  margin-bottom: 0;
+}
+
+.evaluation-title-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   margin-bottom: 20px;
+}
+
+.avg-score {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.avg-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.avg-count {
+  font-size: 13px;
+  color: #94a3b8;
 }
 
 .evaluation-list {
@@ -321,6 +484,36 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.evaluation-reply {
+  margin-top: 12px;
+  padding: 12px;
+  background: #eef2ff;
+  border-radius: 8px;
+  border-left: 3px solid #6366f1;
+}
+
+.reply-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6366f1;
+  margin-bottom: 4px;
+}
+
+.reply-content {
+  color: #475569;
+  line-height: 1.6;
+}
+
+.reply-form {
+  margin-top: 12px;
+}
+
+.evaluation-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
 }
 </style>
 

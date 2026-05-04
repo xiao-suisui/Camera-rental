@@ -132,7 +132,7 @@ public class OrderController {
     }
 
     @GetMapping("/stats/count")
-    public Result<Long> getOrderCount() {
+    public Result<Long> getOrderCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(orderService.countOrders());
     }
 

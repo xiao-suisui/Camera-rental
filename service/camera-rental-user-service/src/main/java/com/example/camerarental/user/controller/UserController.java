@@ -63,7 +63,7 @@ public class UserController {
     }
 
     @GetMapping("/stats/count")
-    public Result<Long> getUserCount() {
+    public Result<Long> getUserCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(userService.countUsers());
     }
 

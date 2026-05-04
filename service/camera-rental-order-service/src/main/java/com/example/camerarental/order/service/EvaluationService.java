@@ -6,6 +6,7 @@ import com.example.camerarental.common.enums.ErrorCode;
 import com.example.camerarental.common.enums.OrderStatus;
 import com.example.camerarental.common.exception.BusinessException;
 import com.example.camerarental.common.service.MinioService;
+import com.example.camerarental.common.util.ValidationUtils;
 import com.example.camerarental.order.dto.EvaluationCreateRequest;
 import com.example.camerarental.order.entity.Evaluation;
 import com.example.camerarental.order.entity.Order;
@@ -91,7 +92,7 @@ public class EvaluationService {
             .evaluatedId(evaluatedId)
             .deviceId(deviceId)
                 .score(request.getScore())
-                .content(request.getContent())
+                .content(ValidationUtils.sanitizeHtml(request.getContent()))
                 .imagePaths(minioService.normalizeImagePaths(request.getImagePaths()))
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -101,16 +102,18 @@ public class EvaluationService {
     }
 
     /**
-     * 查看设备的评价列表
+     * 查看设备的评价列表（分页）
      */
-    public List<Evaluation> listByDeviceId(Long deviceId) {
-        List<Evaluation> evaluations = evaluationMapper.selectList(
+    public com.baomidou.mybatisplus.extension.plugins.pagination.Page<Evaluation> listByDeviceId(Long deviceId, long page, long size) {
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Evaluation> pageParam =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Evaluation> result = evaluationMapper.selectPage(pageParam,
                 new LambdaQueryWrapper<Evaluation>()
                         .eq(Evaluation::getDeviceId, deviceId)
                         .orderByDesc(Evaluation::getCreatedAt)
         );
-        evaluations.forEach(this::resolveImagePathsForRead);
-        return evaluations;
+        result.getRecords().forEach(this::resolveImagePathsForRead);
+        return result;
     }
 
     /**
@@ -178,6 +181,41 @@ public class EvaluationService {
 
         evaluationMapper.deleteById(evaluationId);
         log.info("Evaluation deleted: id={}, userId={}", evaluationId, userId);
+    }
+
+    /**
+     * 商家回复评价
+     */
+    @Transactional
+    @OperationLog(type = "EVALUATION_REPLY", description = "回复评价")
+    public void replyEvaluation(Long evaluationId, Long userId, String reply) {
+        if (reply == null || reply.isBlank()) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "回复内容不能为空");
+        }
+        reply = ValidationUtils.sanitizeHtml(reply.trim());
+        if (reply.length() > 1000) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "回复内容不能超过1000字");
+        }
+
+        Evaluation evaluation = evaluationMapper.selectById(evaluationId);
+        if (evaluation == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "评价不存在");
+        }
+
+        // 只有被评价者（商家/设备拥有者）才能回复
+        if (!userId.equals(evaluation.getEvaluatedId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "只能回复自己收到的评价");
+        }
+
+        if (evaluation.getReply() != null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "已经回复过该评价");
+        }
+
+        evaluation.setReply(reply);
+        evaluation.setRepliedAt(LocalDateTime.now());
+        evaluation.setRepliedBy(userId);
+        evaluationMapper.updateById(evaluation);
+        log.info("Evaluation replied: id={}, userId={}", evaluationId, userId);
     }
 
     /**

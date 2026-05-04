@@ -34,11 +34,12 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const formRef = ref()
 const loading = ref(false)
@@ -63,7 +64,8 @@ const handleLogin = async () => {
     const success = await userStore.doLogin(form.value.phone, form.value.password)
     if (success) {
       ElMessage.success('登录成功')
-      router.push('/')
+      const redirect = route.query.redirect
+      router.push(redirect || '/')
     }
   } catch (error) {
     console.error(error)

@@ -25,7 +25,7 @@
       </el-form>
 
       <!-- 订单列表 -->
-      <el-table :data="orders" v-loading="loading" style="width: 100%">
+      <el-table :data="orders" v-loading="loading" stripe>
         <el-table-column prop="orderNo" label="订单号" width="220" />
         <el-table-column prop="userId" label="租用者ID" width="90" />
         <el-table-column prop="lessorId" label="出租者ID" width="90" />

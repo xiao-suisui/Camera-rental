@@ -25,6 +25,12 @@
               </el-button>
             </el-badge>
 
+            <el-badge :value="chatUnreadCount" :hidden="chatUnreadCount === 0" :max="99">
+              <el-button class="icon-btn" circle @click="$router.push('/chat')">
+                <el-icon :size="18"><ChatDotRound /></el-icon>
+              </el-button>
+            </el-badge>
+
             <el-dropdown @command="handleCommand" trigger="click">
               <div class="user-avatar">
                 <div class="avatar-circle">
@@ -46,6 +52,9 @@
                   </el-dropdown-item>
                   <el-dropdown-item command="favorites">
                     <el-icon><Star /></el-icon>我的收藏
+                  </el-dropdown-item>
+                  <el-dropdown-item command="chat">
+                    <el-icon><ChatDotRound /></el-icon>我的聊天
                   </el-dropdown-item>
                   <el-dropdown-item command="coupons">
                     <el-icon><Ticket /></el-icon>我的优惠券
@@ -121,52 +130,80 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import axios from 'axios'
+import { chatApi } from '@/api/chat'
+import { messageApi } from '@/api/message'
+import eventBus from '@/utils/eventBus'
 import { ElMessage } from 'element-plus'
 import {
   Bell, ArrowDown, Camera, Document, Star, Ticket,
-  User, Lock, Setting, SwitchButton
+  User, Lock, Setting, SwitchButton, ChatDotRound
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 const isScrolled = ref(false)
 const unreadCount = ref(0)
+const chatUnreadCount = ref(0)
 
 const handleScroll = () => { isScrolled.value = window.scrollY > 10 }
 onMounted(() => {
   window.addEventListener('scroll', handleScroll)
-  if (userStore.token) { loadUnreadCount(); startPolling() }
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  eventBus.on('chat:message', loadChatUnreadCount)
+  eventBus.on('message:updated', loadUnreadCount)
+  if (userStore.token) { loadUnreadCount(); loadChatUnreadCount(); startPolling() }
 })
-onUnmounted(() => { window.removeEventListener('scroll', handleScroll); stopPolling() })
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  eventBus.off('chat:message', loadChatUnreadCount)
+  eventBus.off('message:updated', loadUnreadCount)
+  stopPolling()
+})
 
 const loadUnreadCount = async () => {
   if (!userStore.token || !userStore.userInfo.userId) return
   try {
-    const res = await axios.get(`/api/message/unread-count`, {
-      headers: { 'Authorization': `Bearer ${userStore.token}` },
-      timeout: 5000
-    })
-    if (res.data?.code === 0) {
-      unreadCount.value = res.data.data || 0
-    }
+    const res = await messageApi.getUnreadCount()
+    unreadCount.value = res.data || 0
+  } catch (e) { /* 静默，不影响页面 */ }
+}
+
+const loadChatUnreadCount = async () => {
+  if (!userStore.token || !userStore.userInfo.userId) return
+  try {
+    const res = await chatApi.getUnreadTotal()
+    chatUnreadCount.value = res.data || 0
   } catch (e) { /* 静默，不影响页面 */ }
 }
 
 let timer = null
-const startPolling = () => { if (timer) clearInterval(timer); timer = setInterval(loadUnreadCount, 30000) }
+const startPolling = () => {
+  if (timer) clearInterval(timer)
+  timer = setInterval(() => { loadUnreadCount(); loadChatUnreadCount() }, 30000)
+}
 const stopPolling = () => { if (timer) { clearInterval(timer); timer = null } }
 
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    stopPolling()
+  } else if (userStore.token) {
+    loadUnreadCount()
+    loadChatUnreadCount()
+    startPolling()
+  }
+}
+
 watch(() => userStore.token, (v) => {
-  if (v) { loadUnreadCount(); startPolling() }
-  else { unreadCount.value = 0; stopPolling() }
+  if (v) { loadUnreadCount(); loadChatUnreadCount(); startPolling() }
+  else { unreadCount.value = 0; chatUnreadCount.value = 0; stopPolling() }
 })
 
 const handleCommand = async (cmd) => {
   const map = {
     profile: '/profile', 'edit-profile': '/profile/edit', 'change-password': '/change-password',
     'my-devices': '/my-devices', favorites: '/favorites', orders: '/orders', 'lessor-orders': '/lessor-orders',
-    coupons: '/coupons', messages: '/messages', admin: '/admin/dashboard'
+    coupons: '/coupons', messages: '/messages', chat: '/chat', admin: '/admin/dashboard'
   }
   if (cmd === 'logout') { stopPolling(); await userStore.logout(); ElMessage.success('退出成功'); router.push('/'); return }
   if (map[cmd]) router.push(map[cmd])

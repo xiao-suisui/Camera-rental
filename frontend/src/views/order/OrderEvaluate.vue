@@ -5,7 +5,7 @@
 
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="评分" prop="score">
-          <el-rate v-model="form.score" :max="5" show-text />
+          <el-rate v-model="form.score" :max="5" :min="1" show-text />
         </el-form-item>
 
         <el-form-item label="评价内容" prop="content">

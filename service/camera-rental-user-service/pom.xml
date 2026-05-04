@@ -20,6 +20,11 @@
             <artifactId>camera-rental-common</artifactId>
             <version>1.0.0</version>
         </dependency>
+        <!-- WebSocket（common 中 optional，此处显式引入） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
 
         <!-- 用户服务特有：密码加密（Spring Security Crypto） -->
         <dependency>

@@ -30,6 +30,9 @@ public class OutboxPublishJob {
     private final ObjectMapper objectMapper;
     private final RabbitTemplate rabbitTemplate;
 
+    @org.springframework.beans.factory.annotation.Value("${mq.outbox.retention-days:30}")
+    private int retentionDays;
+
     @Scheduled(fixedDelay = 5000)
     public void publishOutboxMessages() {
         LocalDateTime now = LocalDateTime.now();
@@ -92,6 +95,17 @@ public class OutboxPublishJob {
             return objectMapper.readValue(message.getPayload(), OrderCancelledEvent.class);
         }
         return objectMapper.readValue(message.getPayload(), OrderNotificationEvent.class);
+    }
+
+    @Scheduled(cron = "0 0 4 * * ?")
+    public void cleanupSentMessages() {
+        LocalDateTime expiredBefore = LocalDateTime.now().minusDays(Math.max(retentionDays, 1));
+        int deleted = outboxMessageMapper.delete(new LambdaQueryWrapper<MqOutboxMessage>()
+                .eq(MqOutboxMessage::getStatus, OutboxStatus.SENT)
+                .lt(MqOutboxMessage::getSentAt, expiredBefore));
+        if (deleted > 0) {
+            log.info("Cleaned mq_outbox SENT rows: {}, expiredBefore={}", deleted, expiredBefore);
+        }
     }
 }
 

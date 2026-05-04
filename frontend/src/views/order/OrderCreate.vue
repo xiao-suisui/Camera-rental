@@ -21,7 +21,7 @@
       <el-divider />
 
       <!-- 租期选择 -->
-      <el-form :model="orderForm" label-width="100px">
+      <el-form label-width="100px">
         <el-form-item label="租用时间" required>
           <el-date-picker
             v-model="dateRange"
