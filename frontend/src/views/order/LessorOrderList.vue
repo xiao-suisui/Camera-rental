@@ -45,6 +45,18 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="pagination-wrapper" v-if="total > pageSize">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="loadOrders"
+          @size-change="handleSizeChange"
+        />
+      </div>
     </el-card>
   </div>
 </template>
@@ -62,6 +74,9 @@ const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(false)
 const orders = ref([])
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(10)
 
 const searchForm = ref({
   status: ''
@@ -71,13 +86,12 @@ const loadOrders = async () => {
   loading.value = true
   try {
     const res = await orderApi.getLessorList({
-      page: 1,
-      size: 20
+      status: searchForm.value.status || undefined,
+      page: currentPage.value,
+      size: pageSize.value
     })
-    const records = res.data?.records || []
-    orders.value = searchForm.value.status
-      ? records.filter(item => item.status === searchForm.value.status)
-      : records
+    orders.value = res.data?.records || []
+    total.value = res.data?.total || 0
   } catch (error) {
     ElMessage.error('加载出租订单失败')
   } finally {
@@ -85,8 +99,14 @@ const loadOrders = async () => {
   }
 }
 
+const handleSizeChange = () => {
+  currentPage.value = 1
+  loadOrders()
+}
+
 const handleReset = () => {
   searchForm.value.status = ''
+  currentPage.value = 1
   loadOrders()
 }
 

@@ -81,9 +81,13 @@ request.interceptors.response.use(
           pendingRequests.forEach(({ resolve }) => resolve())
           pendingRequests = []
 
-          // 重试原始请求
+          // 重试原始请求（失败直接返回错误，不再触发 logout）
           originalRequest.headers['Authorization'] = `Bearer ${token}`
-          return request(originalRequest)
+          try {
+            return await request(originalRequest)
+          } catch (retryError) {
+            return Promise.reject(retryError)
+          }
         }
 
         // Refresh endpoint returned non-0 code — treat as failure

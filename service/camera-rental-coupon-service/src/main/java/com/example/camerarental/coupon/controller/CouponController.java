@@ -65,6 +65,15 @@ public class CouponController {
         return Result.success(couponService.listAvailableCoupons());
     }
 
+    @PostMapping("/consume")
+    public Result<Void> consumeCoupon(
+            @RequestParam("couponId") Long couponId,
+            @RequestParam("orderId") Long orderId,
+            @RequestParam("userId") Long userId) {
+        couponService.consumeCoupon(userId, couponId, orderId);
+        return Result.success("consume success", null);
+    }
+
     // ========== 管理员接口 ==========
 
     @AdminOnly

@@ -26,11 +26,7 @@
           <span class="card-desc">近7天订单量变化</span>
         </div>
         <div class="chart-body">
-          <div class="chart-empty">
-            <el-icon :size="48" color="#d1d5db"><DataAnalysis /></el-icon>
-            <p>ECharts 图表预留位</p>
-            <p class="chart-hint">安装 echarts 后接入真实趋势数据</p>
-          </div>
+          <div ref="chartRef" class="chart-container"></div>
         </div>
       </div>
 
@@ -85,13 +81,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { User, Camera, Document, Ticket, DataAnalysis, CircleCheck, Warning } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { orderApi } from '@/api/order'
+import * as echarts from 'echarts'
 
 const router = useRouter()
+const chartRef = ref(null)
+let chartInstance = null
 
 const stats = ref({
   totalUsers: 0,
@@ -111,6 +111,15 @@ const statCards = computed(() => [
 
 onMounted(async () => {
   await loadDashboardData()
+  await nextTick()
+  initChart()
+  loadTrendData()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  chartInstance?.dispose()
 })
 
 const loadDashboardData = async () => {
@@ -149,6 +158,49 @@ const handleTask = (task) => {
   } else {
     ElMessage.info('功能开发中')
   }
+}
+
+const initChart = () => {
+  if (!chartRef.value) return
+  chartInstance = echarts.init(chartRef.value)
+  chartInstance.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: { type: 'category', boundaryGap: false, data: [] },
+    yAxis: { type: 'value', minInterval: 1 },
+    series: [{
+      name: '订单数',
+      type: 'line',
+      smooth: true,
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(99, 102, 241, 0.3)' },
+          { offset: 1, color: 'rgba(99, 102, 241, 0.02)' }
+        ])
+      },
+      lineStyle: { color: '#6366f1', width: 3 },
+      itemStyle: { color: '#6366f1' },
+      data: []
+    }]
+  })
+}
+
+const loadTrendData = async () => {
+  try {
+    const { data } = await orderApi.getOrderTrend(7)
+    if (chartInstance && data) {
+      chartInstance.setOption({
+        xAxis: { data: data.dates },
+        series: [{ data: data.counts }]
+      })
+    }
+  } catch (e) {
+    console.error('加载订单趋势失败', e)
+  }
+}
+
+const handleResize = () => {
+  chartInstance?.resize()
 }
 </script>
 
@@ -227,12 +279,9 @@ const handleTask = (task) => {
 .card-desc { font-size: 12px; color: #9ca3af; }
 
 .chart-body { padding: 24px; }
-.chart-empty {
-  height: 240px; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 8px;
-  color: #9ca3af; font-size: 14px;
+.chart-container {
+  height: 280px; width: 100%;
 }
-.chart-hint { font-size: 12px; color: #d1d5db; }
 
 /* 快捷操作 */
 .quick-actions {

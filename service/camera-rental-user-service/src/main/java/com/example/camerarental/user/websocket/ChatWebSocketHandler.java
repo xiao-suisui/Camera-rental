@@ -6,6 +6,7 @@ import com.example.camerarental.user.entity.ChatMessage;
 import com.example.camerarental.user.service.ChatService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
@@ -35,7 +36,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     private final Map<Long, WebSocketSession> onlineUsers = new ConcurrentHashMap<>();
     private final Map<Long, Long> lastPongTime = new ConcurrentHashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     private final ChatService chatService;
     private final JwtService jwtService;
 
@@ -177,14 +180,22 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     private Long extractUserId(WebSocketSession session) {
-        // Read token from Sec-WebSocket-Protocol header (sent as "token-<jwt>" by frontend)
-        String protocolHeader = session.getHandshakeHeaders().getFirst("Sec-WebSocket-Protocol");
-        if (protocolHeader == null || !protocolHeader.startsWith("token-")) {
+        // Read token from query parameter: /ws/chat?token=xxx
+        String query = session.getUri() != null ? session.getUri().getQuery() : null;
+        String token = null;
+        if (query != null) {
+            for (String param : query.split("&")) {
+                if (param.startsWith("token=")) {
+                    token = param.substring("token=".length());
+                    break;
+                }
+            }
+        }
+        if (token == null || token.isEmpty()) {
             return null;
         }
-        String token = protocolHeader.substring("token-".length());
         try {
-            Claims claims = jwtService.parseToken(token);
+            Claims claims = jwtService.parseTokenStrict(token);
             return Long.parseLong(claims.getSubject());
         } catch (Exception e) {
             log.warn("Invalid WebSocket token: {}", e.getMessage());

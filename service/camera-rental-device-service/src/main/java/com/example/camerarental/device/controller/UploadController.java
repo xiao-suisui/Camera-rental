@@ -9,8 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 图片上传控制器
@@ -71,6 +74,32 @@ public class UploadController {
         }
         if (!ALLOWED_TYPES.contains(file.getContentType())) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "仅支持 jpg/png/webp 格式");
+        }
+        // 校验文件魔数（magic bytes），防止 Content-Type 伪造
+        if (!isValidImageMagicBytes(file)) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "文件内容与声明的类型不匹配");
+        }
+    }
+
+    private boolean isValidImageMagicBytes(MultipartFile file) {
+        try (InputStream is = file.getInputStream()) {
+            byte[] header = new byte[8];
+            int read = is.read(header);
+            if (read < 4) return false;
+
+            // JPEG: FF D8 FF
+            if ((header[0] & 0xFF) == 0xFF && (header[1] & 0xFF) == 0xD8 && (header[2] & 0xFF) == 0xFF) return true;
+            // PNG: 89 50 4E 47
+            if ((header[0] & 0xFF) == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47) return true;
+            // GIF: 47 49 46 38
+            if (header[0] == 0x47 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x38) return true;
+            // WEBP: RIFF....WEBP
+            if (header[0] == 0x52 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x46 && read >= 8
+                    && header[4] == 0x57 && header[5] == 0x45 && header[6] == 0x42 && header[7] == 0x50) return true;
+
+            return false;
+        } catch (IOException e) {
+            return false;
         }
     }
 }

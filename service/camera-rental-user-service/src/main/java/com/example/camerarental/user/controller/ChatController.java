@@ -54,6 +54,16 @@ public class ChatController {
     }
 
     /**
+     * 获取单个会话详情
+     */
+    @GetMapping("/conversations/{conversationId}")
+    public Result<ChatConversationDTO> getConversation(
+            @PathVariable Long conversationId,
+            @RequestHeader("X-User-Id") Long userId) {
+        return Result.success(chatService.getConversation(conversationId, userId));
+    }
+
+    /**
      * 获取会话历史消息
      */
     @GetMapping("/conversations/{conversationId}/messages")

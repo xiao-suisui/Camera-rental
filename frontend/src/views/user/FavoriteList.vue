@@ -82,7 +82,7 @@ const favoriteCount = ref(0)
 
 const getFirstImage = (imagePaths) => {
   if (!imagePaths) return ''
-  const paths = imagePaths.split(',')
+  const paths = Array.isArray(imagePaths) ? imagePaths : imagePaths.split(',')
   return paths[0] || ''
 }
 

@@ -110,15 +110,27 @@ const loadMore = () => {
 
 const loadConversationInfo = async () => {
   try {
-    const res = await chatApi.getConversations()
-    const convs = res.data || []
-    const conv = convs.find(c => c.id === Number(conversationId.value))
+    const res = await chatApi.getConversation(conversationId.value)
+    const conv = res.data
     if (conv) {
       otherNickname.value = conv.otherNickname
       otherUserId.value = conv.otherUserId
+      console.log('Loaded conversation info, otherUserId:', conv.otherUserId)
     }
   } catch (e) {
     console.error('Failed to load conversation info:', e)
+    // 如果获取失败，尝试从会话列表中查找
+    try {
+      const listRes = await chatApi.getConversations()
+      const convs = listRes.data || []
+      const conv = convs.find(c => c.id === Number(conversationId.value))
+      if (conv) {
+        otherNickname.value = conv.otherNickname
+        otherUserId.value = conv.otherUserId
+      }
+    } catch (listErr) {
+      console.error('Failed to load conversation list:', listErr)
+    }
   }
 }
 
@@ -155,8 +167,7 @@ const connectWebSocket = () => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const host = window.location.host
   const token = userStore.token
-  // Pass token via Sec-WebSocket-Protocol header to avoid exposing it in URL/logs
-  ws = new WebSocket(`${protocol}//${host}/api/ws/chat`, [`token-${token}`])
+  ws = new WebSocket(`${protocol}//${host}/api/ws/chat?token=${token}`)
 
   ws.onopen = () => {
     console.log('WebSocket connected')
@@ -211,6 +222,12 @@ const connectWebSocket = () => {
 }
 
 const sendMessage = () => {
+  console.log('sendMessage called', {
+    message: inputMessage.value.trim(),
+    wsReady: ws?.readyState === WebSocket.OPEN,
+    otherUserId: otherUserId.value,
+    conversationId: conversationId.value
+  })
   if (!inputMessage.value.trim() || !ws || ws.readyState !== WebSocket.OPEN) return
   if (!otherUserId.value) return
 

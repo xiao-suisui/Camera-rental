@@ -89,6 +89,20 @@ public class ChatService {
         return toConversationDTO(conv, userId);
     }
 
+    /**
+     * 获取单个会话详情
+     */
+    public ChatConversationDTO getConversation(Long conversationId, Long userId) {
+        ChatConversation conv = conversationMapper.selectById(conversationId);
+        if (conv == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "会话不存在");
+        }
+        if (!userId.equals(conv.getUserId1()) && !userId.equals(conv.getUserId2())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "无权查看该会话");
+        }
+        return toConversationDTO(conv, userId);
+    }
+
     private static final int MAX_MESSAGE_LENGTH = 2000;
 
     /**
@@ -139,7 +153,7 @@ public class ChatService {
                             .eq(ChatConversation::getId, conversationId)
                             .set(ChatConversation::getLastMessage, lastMsg)
                             .set(ChatConversation::getLastMessageAt, LocalDateTime.now())
-                            .setSql("unread_count_2 = unread_count_2 + 1")
+                            .setSql("unread_count2 = unread_count2 + 1")
             );
         } else {
             conversationMapper.update(null,
@@ -147,7 +161,7 @@ public class ChatService {
                             .eq(ChatConversation::getId, conversationId)
                             .set(ChatConversation::getLastMessage, lastMsg)
                             .set(ChatConversation::getLastMessageAt, LocalDateTime.now())
-                            .setSql("unread_count_1 = unread_count_1 + 1")
+                            .setSql("unread_count1 = unread_count1 + 1")
             );
         }
 
@@ -158,21 +172,21 @@ public class ChatService {
      * 获取用户的会话列表
      */
     public List<ChatConversationDTO> listConversations(Long userId) {
+        log.info("Listing conversations for userId: {}", userId);
         List<ChatConversation> conversations = conversationMapper.selectList(
                 new LambdaQueryWrapper<ChatConversation>()
-                        .and(w -> w
-                                .and(inner -> inner
-                                        .eq(ChatConversation::getUserId1, userId)
-                                        .eq(ChatConversation::getDeletedByUser1, 0)
-                                )
-                                .or()
-                                .and(inner -> inner
-                                        .eq(ChatConversation::getUserId2, userId)
-                                        .eq(ChatConversation::getDeletedByUser2, 0)
-                                )
+                        .nested(w -> w
+                                .eq(ChatConversation::getUserId1, userId)
+                                .eq(ChatConversation::getDeletedByUser1, 0)
+                        )
+                        .or()
+                        .nested(w -> w
+                                .eq(ChatConversation::getUserId2, userId)
+                                .eq(ChatConversation::getDeletedByUser2, 0)
                         )
                         .orderByDesc(ChatConversation::getLastMessageAt)
         );
+        log.info("Found {} conversations for userId: {}", conversations.size(), userId);
 
         if (conversations.isEmpty()) {
             return Collections.emptyList();
@@ -308,16 +322,14 @@ public class ChatService {
     public Integer getTotalUnreadCount(Long userId) {
         List<ChatConversation> conversations = conversationMapper.selectList(
                 new LambdaQueryWrapper<ChatConversation>()
-                        .and(w -> w
-                                .and(inner -> inner
-                                        .eq(ChatConversation::getUserId1, userId)
-                                        .eq(ChatConversation::getDeletedByUser1, 0)
-                                )
-                                .or()
-                                .and(inner -> inner
-                                        .eq(ChatConversation::getUserId2, userId)
-                                        .eq(ChatConversation::getDeletedByUser2, 0)
-                                )
+                        .nested(w -> w
+                                .eq(ChatConversation::getUserId1, userId)
+                                .eq(ChatConversation::getDeletedByUser1, 0)
+                        )
+                        .or()
+                        .nested(w -> w
+                                .eq(ChatConversation::getUserId2, userId)
+                                .eq(ChatConversation::getDeletedByUser2, 0)
                         )
         );
 

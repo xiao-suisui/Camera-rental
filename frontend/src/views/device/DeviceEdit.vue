@@ -143,15 +143,18 @@ const handleSubmit = async () => {
     ElMessage.warning('图片上传中，请稍后再提交')
     return
   }
-  await formRef.value.validate()
+  try {
+    await formRef.value.validate()
+  } catch {
+    return
+  }
   submitting.value = true
   try {
     await updateDevice(route.params.id, form.value)
     ElMessage.success('更新成功')
     router.back()
   } catch (error) {
-    console.error(error)
-    ElMessage.error('更新失败')
+    ElMessage.error(error?.response?.data?.message || error?.message || '更新失败')
   } finally {
     submitting.value = false
   }

@@ -7,7 +7,8 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum DeviceStatus {
     ACTIVE("ACTIVE"),
-    OFFLINE("OFFLINE");
+    OFFLINE("OFFLINE"),
+    RENTED("RENTED");
 
     private final String value;
 }

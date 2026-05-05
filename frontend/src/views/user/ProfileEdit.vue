@@ -106,11 +106,17 @@ const handleSubmit = async () => {
 
     await request.put(`/user/${userStore.userInfo.userId}/profile`, {
       nickname: form.nickname,
-      address: form.address
+      address: form.address,
+      avatar: avatarList.value.length > 0 ? avatarList.value[0] : null
     })
 
-    // 更新store中的用户信息
-    userStore.userInfo.nickname = form.nickname
+    // 更新store中的用户信息（同步到 localStorage）
+    userStore.setUserInfo({
+      ...userStore.userInfo,
+      nickname: form.nickname,
+      address: form.address,
+      avatar: avatarList.value.length > 0 ? avatarList.value[0] : userStore.userInfo.avatar
+    })
 
     ElMessage.success('保存成功')
     router.push('/profile')

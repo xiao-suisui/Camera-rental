@@ -23,13 +23,17 @@ import com.example.camerarental.order.mapper.OrderMapper;
 import com.example.camerarental.order.mq.OrderNotificationProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -101,7 +105,13 @@ public class OrderService {
             payAmount = BigDecimal.ZERO;
         }
 
-        // 4. 创建订单
+        // 4. 锁定设备（条件更新 ACTIVE → RENTED，防止并发重复下单）
+        Result<Void> lockResult = deviceFeignClient.lockDevice(request.getDeviceId());
+        if (lockResult == null || lockResult.getCode() == null || lockResult.getCode() != 0) {
+            throw new BusinessException(ErrorCode.DEVICE_NOT_AVAILABLE, "设备锁定失败，可能已被其他用户下单");
+        }
+
+        // 5. 创建订单
         Order order = new Order();
         order.setOrderNo(generateOrderNo());
         order.setUserId(operatorUserId);
@@ -121,6 +131,14 @@ public class OrderService {
 
         orderMapper.insert(order);
         log.info("Order created: orderNo={}", order.getOrderNo());
+
+        // 6. 标记优惠券为已使用
+        if (request.getCouponId() != null) {
+            Result<Void> consumeResult = couponFeignClient.consumeCoupon(request.getCouponId(), order.getId(), operatorUserId);
+            if (consumeResult == null || consumeResult.getCode() == null || consumeResult.getCode() != 0) {
+                log.warn("优惠券消费失败，订单已创建但优惠券状态未更新: couponId={}, orderNo={}", request.getCouponId(), order.getOrderNo());
+            }
+        }
 
         return new OrderCreateResponse(order.getOrderNo(), totalRent, discountAmount, payAmount);
     }
@@ -346,6 +364,58 @@ public class OrderService {
 
     public long countOrders() {
         return orderMapper.selectCount(null);
+    }
+
+    /**
+     * 获取最近 N 天的订单趋势数据
+     */
+    public Map<String, Object> getOrderTrend(int days) {
+        List<Map<String, Object>> rows = orderMapper.countOrdersByDay(days);
+
+        // 构建日期 -> 数量映射
+        Map<String, Long> countMap = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String date = row.get("date").toString();
+            Long count = ((Number) row.get("count")).longValue();
+            countMap.put(date, count);
+        }
+
+        // 填充连续日期（没有订单的日期补 0）
+        List<String> dates = new ArrayList<>();
+        List<Long> counts = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM-dd");
+        for (int i = days - 1; i >= 0; i--) {
+            LocalDate d = today.minusDays(i);
+            String key = d.toString(); // yyyy-MM-dd
+            dates.add(d.format(fmt));
+            counts.add(countMap.getOrDefault(key, 0L));
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("dates", dates);
+        result.put("counts", counts);
+        return result;
+    }
+
+    /**
+     * 检查设备是否有活跃订单（非终态：非 FINISHED / CANCELED）
+     */
+    public boolean hasActiveOrders(Long deviceId) {
+    List<String> activeStatuses = List.of(
+                OrderStatus.PENDING_PAY.getValue(),
+                OrderStatus.PAID.getValue(),
+                OrderStatus.TO_SHIP.getValue(),
+                OrderStatus.TO_RETURN.getValue(),
+                OrderStatus.RETURNED.getValue(),
+                OrderStatus.OVERDUE.getValue()
+        );
+        Long count = orderMapper.selectCount(
+                new LambdaQueryWrapper<Order>()
+                        .eq(Order::getDeviceId, deviceId)
+                        .in(Order::getStatus, activeStatuses)
+        );
+        return count != null && count > 0;
     }
 
     public IPage<Order> listAllOrders(String status, String orderNo, int page, int size) {

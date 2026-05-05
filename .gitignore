@@ -49,6 +49,9 @@ frontend/node_modules/
 nacos_config/SHARED_GROUP/cipher-config.yaml
 nacos_config/SHARED_GROUP/cipher-config-dev.yaml
 
+### MCP 配置（含 token） ###
+.mcp.json
+
 ### 日志 ###
 *.log
 logs/

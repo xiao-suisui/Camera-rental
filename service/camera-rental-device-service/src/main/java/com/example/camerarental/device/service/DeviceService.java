@@ -8,13 +8,16 @@ import com.example.camerarental.common.enums.AuditStatus;
 import com.example.camerarental.common.enums.DeviceStatus;
 import com.example.camerarental.common.enums.ErrorCode;
 import com.example.camerarental.common.exception.BusinessException;
+import com.example.camerarental.common.result.Result;
 import com.example.camerarental.common.mq.OrderCancelledEvent;
 import com.example.camerarental.common.service.MinioService;
+import com.example.camerarental.common.util.ValidationUtils;
 import com.example.camerarental.device.dto.DeviceAuditRequest;
 import com.example.camerarental.device.dto.DeviceBatchPublishRequest;
 import com.example.camerarental.device.dto.DevicePublishRequest;
 import com.example.camerarental.device.dto.DevicePublishResponse;
 import com.example.camerarental.device.entity.Device;
+import com.example.camerarental.device.feign.OrderFeignClient;
 import com.example.camerarental.device.mapper.DeviceMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +40,7 @@ public class DeviceService {
 
     private final DeviceMapper deviceMapper;
     private final MinioService minioService;
+    private final OrderFeignClient orderFeignClient;
 
     @Transactional
     @OperationLog(type = "DEVICE_PUBLISH", description = "发布设备")
@@ -46,10 +50,10 @@ public class DeviceService {
         }
         Device device = Device.builder()
                 .userId(operatorUserId)
-                .title(request.getTitle())
-                .brand(request.getBrand())
-                .model(request.getModel())
-                .description(request.getDescription())
+                .title(ValidationUtils.sanitizeHtml(request.getTitle()))
+                .brand(ValidationUtils.sanitizeHtml(request.getBrand()))
+                .model(ValidationUtils.sanitizeHtml(request.getModel()))
+                .description(ValidationUtils.sanitizeHtml(request.getDescription()))
                 .imagePaths(normalizeImagePaths(request.getImagePaths()))
                 .rentPrice(request.getRentPrice())
                 .deposit(request.getDeposit())
@@ -185,10 +189,10 @@ public class DeviceService {
         }
         ensureOwnerOrAdmin(device, operatorUserId, operatorRole);
 
-        device.setTitle(request.getTitle());
-        device.setBrand(request.getBrand());
-        device.setModel(request.getModel());
-        device.setDescription(request.getDescription());
+        device.setTitle(ValidationUtils.sanitizeHtml(request.getTitle()));
+        device.setBrand(ValidationUtils.sanitizeHtml(request.getBrand()));
+        device.setModel(ValidationUtils.sanitizeHtml(request.getModel()));
+        device.setDescription(ValidationUtils.sanitizeHtml(request.getDescription()));
         device.setImagePaths(normalizeImagePaths(request.getImagePaths()));
         device.setRentPrice(request.getRentPrice());
         device.setDeposit(request.getDeposit());
@@ -209,10 +213,35 @@ public class DeviceService {
         }
         ensureOwnerOrAdmin(device, operatorUserId, operatorRole);
 
+        // 检查是否有活跃订单
+        Result<Boolean> activeResult = orderFeignClient.hasActiveOrders(deviceId);
+        if (activeResult != null && activeResult.getData() != null && activeResult.getData()) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "设备存在进行中的订单，无法删除");
+        }
+
         device.setDeleted(1);
         device.setUpdatedAt(LocalDateTime.now());
         deviceMapper.updateById(device);
         log.info("Device deleted: deviceId={}", deviceId);
+    }
+
+    /**
+     * 锁定设备（条件更新：仅 ACTIVE → RENTED），用于订单创建时防止重复下单
+     */
+    @Transactional
+    @CacheEvict(value = "device", key = "#deviceId")
+    public void lockDevice(Long deviceId) {
+        int rows = deviceMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Device>()
+                        .eq(Device::getId, deviceId)
+                        .eq(Device::getStatus, DeviceStatus.ACTIVE.getValue())
+                        .set(Device::getStatus, DeviceStatus.RENTED.getValue())
+                        .set(Device::getUpdatedAt, LocalDateTime.now())
+        );
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.DEVICE_NOT_AVAILABLE, "设备不可用或已被锁定");
+        }
+        log.info("Device locked: deviceId={}", deviceId);
     }
 
     @Transactional
@@ -288,6 +317,7 @@ public class DeviceService {
     }
 
     @Transactional
+    @CacheEvict(value = "device", key = "#event.deviceId")
     public void handleOrderCancelledReleaseStock(OrderCancelledEvent event) {
         if (event == null || event.getDeviceId() == null) {
             log.warn("Skip stock release for invalid order-cancelled event: {}", event);

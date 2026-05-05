@@ -158,6 +158,41 @@ public class CouponService {
         );
     }
 
+    /**
+     * 标记优惠券为已使用（由 order-service 在创建订单后调用）
+     */
+    @Transactional
+    public void consumeCoupon(Long userId, Long couponId, Long orderId) {
+        UserCoupon userCoupon = userCouponMapper.selectOne(
+                new LambdaQueryWrapper<UserCoupon>()
+                        .eq(UserCoupon::getUserId, userId)
+                        .eq(UserCoupon::getCouponId, couponId)
+                        .eq(UserCoupon::getUseStatus, CouponUseStatus.UNUSED.getValue())
+                        .last("limit 1")
+        );
+        if (userCoupon == null) {
+            throw new BusinessException(ErrorCode.COUPON_NOT_FOUND, "无可用的未使用优惠券");
+        }
+        // 校验过期
+        if (userCoupon.getExpireTime() != null && userCoupon.getExpireTime().isBefore(LocalDateTime.now())) {
+            throw new BusinessException(ErrorCode.COUPON_EXPIRED, "优惠券已过期");
+        }
+
+        userCoupon.setUseStatus(CouponUseStatus.USED.getValue());
+        userCoupon.setOrderId(orderId);
+        userCouponMapper.updateById(userCoupon);
+
+        // 更新优惠券已使用数
+        couponMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Coupon>()
+                        .eq(Coupon::getId, couponId)
+                        .setSql("used_count = used_count + 1")
+                        .set(Coupon::getUpdatedAt, LocalDateTime.now())
+        );
+
+        log.info("Coupon consumed: userId={}, couponId={}, orderId={}", userId, couponId, orderId);
+    }
+
     // ========== 管理员方法 ==========
 
     public List<Coupon> listAllCoupons() {

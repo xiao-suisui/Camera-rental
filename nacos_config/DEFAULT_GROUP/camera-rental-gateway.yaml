@@ -65,7 +65,14 @@ spring:
         - id: chat-service
           uri: lb://camera-rental-user-service
           predicates:
-            - Path=/chat/**,/ws/chat/**
+            - Path=/chat/**
+          filters:
+            - StripPrefix=0
+          order: 100
+        - id: chat-ws-service
+          uri: lb:ws://camera-rental-user-service
+          predicates:
+            - Path=/ws/chat/**
           filters:
             - StripPrefix=0
           order: 100

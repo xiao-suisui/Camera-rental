@@ -34,7 +34,7 @@
       deposit DECIMAL(10,2) NOT NULL,
       address VARCHAR(128) NOT NULL,
       audit_status ENUM('PENDING','APPROVED','REJECTED') NOT NULL,
-      status ENUM('ACTIVE','OFFLINE') NOT NULL,
+      status ENUM('ACTIVE','OFFLINE','RENTED') NOT NULL,
       batch_id VARCHAR(64) DEFAULT NULL,
       deleted TINYINT NOT NULL DEFAULT 0,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -224,22 +224,22 @@
     -- Chat conversations
     CREATE TABLE IF NOT EXISTS chat_conversation (
       id BIGINT NOT NULL AUTO_INCREMENT,
-      user_id_1 BIGINT NOT NULL,
-      user_id_2 BIGINT NOT NULL,
+      user_id1 BIGINT NOT NULL,
+      user_id2 BIGINT NOT NULL,
       device_id BIGINT DEFAULT NULL,
       order_id BIGINT DEFAULT NULL,
       last_message VARCHAR(500) DEFAULT NULL,
       last_message_at DATETIME DEFAULT NULL,
-      unread_count_1 INT NOT NULL DEFAULT 0,
-      unread_count_2 INT NOT NULL DEFAULT 0,
+      unread_count1 INT NOT NULL DEFAULT 0,
+      unread_count2 INT NOT NULL DEFAULT 0,
       deleted_by_user1 TINYINT NOT NULL DEFAULT 0,
       deleted_by_user2 TINYINT NOT NULL DEFAULT 0,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (id),
-      UNIQUE KEY uk_conversation (user_id_1, user_id_2),
-      KEY idx_conv_user1 (user_id_1),
-      KEY idx_conv_user2 (user_id_2)
+      UNIQUE KEY uk_conversation (user_id1, user_id2),
+      KEY idx_conv_user1 (user_id1),
+      KEY idx_conv_user2 (user_id2)
     ) ENGINE=InnoDB;
 
     -- Chat messages

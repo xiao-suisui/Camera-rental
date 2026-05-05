@@ -58,7 +58,7 @@ public class UserService {
         log.info("User registered: {}", request.getPhone());
     }
 
-    @OperationLog(type = "USER_LOGIN", description = "用户登录", saveResponseData = false)
+    @OperationLog(type = "USER_LOGIN", description = "用户登录", saveRequestData = false, saveResponseData = false)
     public LoginResponse login(LoginRequest request) {
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>().eq(User::getPhone, request.getPhone())
@@ -126,7 +126,7 @@ public class UserService {
     }
 
     @Transactional
-    @OperationLog(type = "USER_PASSWORD_CHANGE", description = "修改密码")
+    @OperationLog(type = "USER_PASSWORD_CHANGE", description = "修改密码", saveRequestData = false)
     @CacheEvict(value = "user", key = "#userId")
     public void changePassword(Long userId, ChangePasswordRequest request) {
         User user = userMapper.selectById(userId);
@@ -212,6 +212,18 @@ public class UserService {
     @OperationLog(type = "USER_STATUS_CHANGE", description = "修改用户状态")
     @CacheEvict(value = "user", key = "#userId")
     public void updateUserStatus(Long userId, String status) {
+        // 校验状态值是否合法
+        boolean validStatus = false;
+        for (UserStatus s : UserStatus.values()) {
+            if (s.getValue().equals(status)) {
+                validStatus = true;
+                break;
+            }
+        }
+        if (!validStatus) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "无效的用户状态: " + status);
+        }
+
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "用户不存在");

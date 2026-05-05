@@ -20,6 +20,12 @@
             <artifactId>camera-rental-common</artifactId>
         </dependency>
 
+        <!-- MinIO 文件存储（common 中 optional，此处显式引入） -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

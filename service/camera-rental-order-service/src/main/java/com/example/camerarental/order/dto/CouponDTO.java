@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 /**
  * 优惠券信息DTO（用于Feign调用）
@@ -20,5 +21,6 @@ public class CouponDTO {
     private BigDecimal denomination;
     private BigDecimal threshold;
     private String status;
+    private LocalDateTime expireTime;
 }
 

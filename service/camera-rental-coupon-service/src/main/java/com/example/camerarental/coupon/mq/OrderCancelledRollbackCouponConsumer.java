@@ -15,8 +15,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.interceptor.TransactionAspectSupport;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -60,9 +58,6 @@ public class OrderCancelledRollbackCouponConsumer {
             couponService.handleOrderCancelledRollbackCoupon(event);
             channel.basicAck(deliveryTag, false);
         } catch (Exception ex) {
-            if (TransactionSynchronizationManager.isActualTransactionActive()) {
-                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-            }
             log.error("Failed to consume order-cancelled coupon event: eventId={}", eventId, ex);
             channel.basicNack(deliveryTag, false, false);
         }

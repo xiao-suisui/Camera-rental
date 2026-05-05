@@ -36,7 +36,8 @@ export const orderApi = {
   getRenterList: (params) => request.get('/order/renter/list', { params }),
 
   // 管理员接口
-  adminList: (params) => request.get('/order/admin/list', { params })
+  adminList: (params) => request.get('/order/admin/list', { params }),
+  getOrderTrend: (days = 7) => request.get('/order/admin/stats/trend', { params: { days } })
 }
 
 // 兼容旧的导出方式

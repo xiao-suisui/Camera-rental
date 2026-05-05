@@ -18,4 +18,10 @@ public class CouponFeignClientFallback implements CouponFeignClient {
         log.error("调用Coupon服务失败，couponId={}", couponId);
         return Result.error("优惠券服务暂时不可用，请稍后重试");
     }
+
+    @Override
+    public Result<Void> consumeCoupon(Long couponId, Long orderId, Long userId) {
+        log.error("调用Coupon服务失败(消费优惠券)，couponId={}, orderId={}", couponId, orderId);
+        return Result.error("优惠券服务暂时不可用，请稍后重试");
+    }
 }

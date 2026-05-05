@@ -133,7 +133,11 @@ const handleSubmit = async () => {
     ElMessage.warning('图片上传中，请稍后再提交')
     return
   }
-  await formRef.value.validate()
+  try {
+    await formRef.value.validate()
+  } catch {
+    return
+  }
   submitting.value = true
   try {
     if (publishType.value === 'batch') {
@@ -148,7 +152,7 @@ const handleSubmit = async () => {
     }
     router.push('/devices')
   } catch (error) {
-    console.error(error)
+    ElMessage.error(error?.response?.data?.message || error?.message || '提交失败')
   } finally {
     submitting.value = false
   }

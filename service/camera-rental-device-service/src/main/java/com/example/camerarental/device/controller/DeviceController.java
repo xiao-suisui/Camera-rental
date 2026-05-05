@@ -103,6 +103,12 @@ public class DeviceController {
         return Result.success(deviceService.getMyDevices(userId));
     }
 
+    @PostMapping("/{deviceId}/lock")
+    public Result<Void> lockDevice(@PathVariable Long deviceId) {
+        deviceService.lockDevice(deviceId);
+        return Result.success("设备已锁定", null);
+    }
+
     @GetMapping("/stats/count")
     public Result<Long> getDeviceCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(deviceService.countDevices());

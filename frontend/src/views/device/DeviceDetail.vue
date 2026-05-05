@@ -174,7 +174,9 @@ const replyText = ref({})
 const replying = ref(null)
 
 const images = computed(() => {
-  return device.value.imagePaths?.split(',') || []
+  const paths = device.value.imagePaths
+  if (!paths) return []
+  return Array.isArray(paths) ? paths : paths.split(',')
 })
 
 const isOwner = computed(() => {

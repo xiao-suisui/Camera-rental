@@ -7,6 +7,9 @@ export const chatApi = {
   // 获取会话列表
   getConversations: () => request.get('/chat/conversations'),
 
+  // 获取单个会话详情
+  getConversation: (conversationId) => request.get(`/chat/conversations/${conversationId}`),
+
   // 获取历史消息
   getMessages: (conversationId, page = 1, size = 20) =>
     request.get(`/chat/conversations/${conversationId}/messages`, { params: { page, size } }),

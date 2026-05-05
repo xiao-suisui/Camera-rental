@@ -21,6 +21,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/order")
@@ -136,7 +137,19 @@ public class OrderController {
         return Result.success(orderService.countOrders());
     }
 
+    @GetMapping("/device/{deviceId}/has-active")
+    public Result<Boolean> hasActiveOrders(@PathVariable Long deviceId) {
+        return Result.success(orderService.hasActiveOrders(deviceId));
+    }
+
     // ========== 管理员接口 ==========
+
+    @AdminOnly
+    @GetMapping("/admin/stats/trend")
+    public Result<Map<String, Object>> getOrderTrend(
+            @RequestParam(defaultValue = "7") int days) {
+        return Result.success(orderService.getOrderTrend(days));
+    }
 
     @AdminOnly
     @GetMapping("/admin/list")
