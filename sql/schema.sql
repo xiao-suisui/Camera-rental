@@ -109,6 +109,7 @@
       UNIQUE KEY uk_user_coupon (user_id, coupon_id),
       KEY idx_user_coupon_status (use_status),
       KEY idx_user_coupon_order (order_id),
+      KEY idx_user_coupon_expire (use_status, expire_time),
       CONSTRAINT fk_user_coupon_user FOREIGN KEY (user_id) REFERENCES `user` (id),
       CONSTRAINT fk_user_coupon_coupon FOREIGN KEY (coupon_id) REFERENCES coupon (id),
       CONSTRAINT fk_user_coupon_order FOREIGN KEY (order_id) REFERENCES `order` (id)

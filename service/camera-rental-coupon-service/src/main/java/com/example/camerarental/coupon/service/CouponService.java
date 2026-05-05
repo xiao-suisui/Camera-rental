@@ -22,6 +22,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -35,6 +36,7 @@ public class CouponService {
     private final StringRedisTemplate stringRedisTemplate;
 
     private static final String COUPON_STOCK_KEY = "camera-rental:coupon:stock:";
+    private static final String USER_COUPON_EXPIRE_KEY = "camera-rental:coupon:user-coupon:";
 
     @Transactional
     @OperationLog(type = "COUPON_CREATE", description = "创建优惠券")
@@ -83,9 +85,24 @@ public class CouponService {
         String stockKey = COUPON_STOCK_KEY + request.getCouponId();
         Long remaining = stringRedisTemplate.opsForValue().decrement(stockKey);
         if (remaining == null || remaining < 0) {
-            // 回补库存
-            stringRedisTemplate.opsForValue().increment(stockKey);
-            throw new BusinessException(ErrorCode.COUPON_OUT_OF_STOCK);
+            // Redis key 不存在或库存为负，尝试从 DB 同步
+            Coupon stockCoupon = couponMapper.selectById(request.getCouponId());
+            if (stockCoupon == null) {
+                stringRedisTemplate.opsForValue().increment(stockKey);
+                throw new BusinessException(ErrorCode.COUPON_NOT_FOUND, "优惠券不存在");
+            }
+            long realRemaining = stockCoupon.getTotalCount() - stockCoupon.getUsedCount();
+            if (realRemaining <= 0) {
+                stringRedisTemplate.opsForValue().increment(stockKey);
+                throw new BusinessException(ErrorCode.COUPON_OUT_OF_STOCK);
+            }
+            // 用 DB 真实库存重置 Redis，并重新扣减
+            stringRedisTemplate.opsForValue().set(stockKey, String.valueOf(realRemaining));
+            remaining = stringRedisTemplate.opsForValue().decrement(stockKey);
+            if (remaining == null || remaining < 0) {
+                stringRedisTemplate.opsForValue().increment(stockKey);
+                throw new BusinessException(ErrorCode.COUPON_OUT_OF_STOCK);
+            }
         }
 
         try {
@@ -118,7 +135,17 @@ public class CouponService {
                     .build();
             userCouponMapper.insert(userCoupon);
 
-            // 5. 原子更新数据库已领取数（避免并发丢失更新）
+            // 5. 写入 Redis 过期 key，用于监听过期事件
+            Duration ttl = Duration.between(LocalDateTime.now(), userCoupon.getExpireTime());
+            if (!ttl.isNegative() && !ttl.isZero()) {
+                stringRedisTemplate.opsForValue().set(
+                        USER_COUPON_EXPIRE_KEY + userCoupon.getId(),
+                        "1",
+                        ttl
+                );
+            }
+
+            // 6. 原子更新数据库已领取数（避免并发丢失更新）
             couponMapper.update(null,
                     new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Coupon>()
                             .eq(Coupon::getId, coupon.getId())
@@ -182,13 +209,8 @@ public class CouponService {
         userCoupon.setOrderId(orderId);
         userCouponMapper.updateById(userCoupon);
 
-        // 更新优惠券已使用数
-        couponMapper.update(null,
-                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Coupon>()
-                        .eq(Coupon::getId, couponId)
-                        .setSql("used_count = used_count + 1")
-                        .set(Coupon::getUpdatedAt, LocalDateTime.now())
-        );
+        // 删除 Redis 过期 key，防止消费后触发过期事件
+        stringRedisTemplate.delete(USER_COUPON_EXPIRE_KEY + userCoupon.getId());
 
         log.info("Coupon consumed: userId={}, couponId={}, orderId={}", userId, couponId, orderId);
     }
@@ -238,14 +260,7 @@ public class CouponService {
         userCoupon.setOrderId(null);
         userCouponMapper.updateById(userCoupon);
 
-        couponMapper.update(null,
-                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Coupon>()
-                        .eq(Coupon::getId, event.getCouponId())
-                        .gt(Coupon::getUsedCount, 0)
-                        .setSql("used_count = used_count - 1")
-                        .set(Coupon::getUpdatedAt, LocalDateTime.now())
-        );
-
+        // 回补 Redis 库存（领券时已扣减，取消订单后恢复可领取数量）
         stringRedisTemplate.opsForValue().increment(COUPON_STOCK_KEY + event.getCouponId());
         log.info("Rolled back coupon usage for cancelled order: orderNo={}, userId={}, couponId={}",
                 event.getOrderNo(), event.getUserId(), event.getCouponId());
