@@ -99,22 +99,6 @@ if %errorlevel% neq 0 (
 )
 echo.
 
-:: 7. 可选：启动 Seata (如果使用分布式事务)
-echo [可选] 是否启动 Seata Server? (Y/N)
-set /p start_seata=
-if /i "%start_seata%"=="Y" (
-    echo [7/7] 正在启动 Seata...
-    cd /d D:\Program\seata\bin
-    if exist seata-server.bat (
-        start "Seata Server" cmd /c "seata-server.bat"
-        timeout /t 3 >nul
-        echo [√] Seata 正在启动... (端口: 8091)
-        echo     访问地址: http://localhost:7091
-    ) else (
-        echo [!] 未找到 Seata 启动脚本，请检查 Seata 安装路径
-    )
-    echo.
-)
 
 echo ============================================
 echo    所有中间件启动完成！
