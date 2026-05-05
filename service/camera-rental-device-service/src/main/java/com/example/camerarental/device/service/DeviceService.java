@@ -189,6 +189,10 @@ public class DeviceService {
         }
         ensureOwnerOrAdmin(device, operatorUserId, operatorRole);
 
+        if (!DeviceStatus.OFFLINE.name().equals(device.getStatus())) {
+            throw new BusinessException(ErrorCode.DEVICE_NOT_AVAILABLE, "只有下架状态的设备才能编辑");
+        }
+
         device.setTitle(ValidationUtils.sanitizeHtml(request.getTitle()));
         device.setBrand(ValidationUtils.sanitizeHtml(request.getBrand()));
         device.setModel(ValidationUtils.sanitizeHtml(request.getModel()));
@@ -197,10 +201,11 @@ public class DeviceService {
         device.setRentPrice(request.getRentPrice());
         device.setDeposit(request.getDeposit());
         device.setAddress(request.getAddress());
+        device.setAuditStatus(AuditStatus.PENDING.name());
         device.setUpdatedAt(LocalDateTime.now());
 
         deviceMapper.updateById(device);
-        log.info("Device updated: deviceId={}", deviceId);
+        log.info("Device updated and resubmitted for audit: deviceId={}", deviceId);
     }
 
     @Transactional
@@ -219,9 +224,8 @@ public class DeviceService {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "设备存在进行中的订单，无法删除");
         }
 
-        device.setDeleted(1);
-        device.setUpdatedAt(LocalDateTime.now());
-        deviceMapper.updateById(device);
+        // 使用 deleteById 触发 MyBatis-Plus 逻辑删除拦截器（自动 SET deleted=1）
+        deviceMapper.deleteById(deviceId);
         log.info("Device deleted: deviceId={}", deviceId);
     }
 

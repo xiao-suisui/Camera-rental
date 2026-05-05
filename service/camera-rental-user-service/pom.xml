@@ -20,6 +20,11 @@
             <artifactId>camera-rental-common</artifactId>
             <version>1.0.0</version>
         </dependency>
+        <!-- MinIO（common 中 optional，此处显式引入以使用 MinioService） -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+        </dependency>
         <!-- WebSocket（common 中 optional，此处显式引入） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

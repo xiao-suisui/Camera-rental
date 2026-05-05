@@ -52,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { uploadApi } from '@/api/upload'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, ZoomIn } from '@element-plus/icons-vue'
@@ -75,19 +75,15 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'uploading-change'])
 
 const fileInput = ref(null)
-const imageList = ref([...props.modelValue])
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const dragActive = ref(false)
 const failedFiles = ref([])
 
-watch(() => props.modelValue, (newVal) => {
-  imageList.value = [...newVal]
+const imageList = computed({
+  get: () => props.modelValue,
+  set: (val) => emit('update:modelValue', val)
 })
-
-watch(imageList, (newVal) => {
-  emit('update:modelValue', newVal)
-}, { deep: true })
 
 watch(uploading, (newVal) => {
   emit('uploading-change', newVal)
@@ -142,7 +138,7 @@ const processFiles = async (files) => {
       const file = files[i]
       try {
         const { data } = await uploadApi.uploadImage(file)
-        imageList.value.push(data)
+        imageList.value = [...imageList.value, data]
         successCount++
       } catch (error) {
         failedFiles.value.push(file)
@@ -191,7 +187,7 @@ const handlePreview = () => {
 }
 
 const handleRemove = (index) => {
-  imageList.value.splice(index, 1)
+  imageList.value = imageList.value.filter((_, i) => i !== index)
   ElMessage.success('删除成功')
 }
 </script>
