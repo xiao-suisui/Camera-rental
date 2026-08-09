@@ -28,7 +28,7 @@
 
       <el-table :data="orders" v-loading="loading">
         <el-table-column prop="orderNo" label="订单号" width="200" />
-        <el-table-column label="设备信息" width="250">
+        <el-table-column label="设备信息" width="120">
           <template #default="{ row }">
             <div class="device-info">
               <span>设备ID: {{ row.deviceId }}</span>

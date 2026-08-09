@@ -124,11 +124,12 @@ onUnmounted(() => {
 
 const loadDashboardData = async () => {
   try {
-    const [usersRes, devicesRes, ordersRes, pendingRes] = await Promise.allSettled([
+    const [usersRes, devicesRes, ordersRes, pendingRes, disputeRes] = await Promise.allSettled([
       request.get('/user/stats/count'),
       request.get('/device/stats/count'),
       request.get('/order/stats/count'),
-      request.get('/device/stats/pending')
+      request.get('/device/stats/pending'),
+      request.get('/dispute/admin/stats/pending')
     ])
 
     stats.value = {
@@ -138,11 +139,20 @@ const loadDashboardData = async () => {
       pendingAudit: pendingRes.status === 'fulfilled' ? (pendingRes.value.data || 0) : 0
     }
 
+    const disputePending = disputeRes.status === 'fulfilled' ? (disputeRes.value.data || 0) : 0
+
     const tasks = []
     if (stats.value.pendingAudit > 0) {
       tasks.push({
         type: '设备审核',
         content: `有 ${stats.value.pendingAudit} 个设备待审核`,
+        time: new Date().toISOString().slice(0, 16).replace('T', ' ')
+      })
+    }
+    if (disputePending > 0) {
+      tasks.push({
+        type: '纠纷调解',
+        content: `有 ${disputePending} 个纠纷待处理`,
         time: new Date().toISOString().slice(0, 16).replace('T', ' ')
       })
     }
@@ -155,6 +165,8 @@ const loadDashboardData = async () => {
 const handleTask = (task) => {
   if (task.type === '设备审核') {
     router.push('/admin/devices')
+  } else if (task.type === '纠纷调解') {
+    router.push('/admin/disputes')
   } else {
     ElMessage.info('功能开发中')
   }

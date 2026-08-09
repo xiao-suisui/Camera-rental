@@ -4,6 +4,7 @@ import com.example.camerarental.common.annotation.AdminOnly;
 import com.example.camerarental.common.result.Result;
 import com.example.camerarental.user.entity.Message;
 import com.example.camerarental.user.service.MessageService;
+import com.example.camerarental.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +16,7 @@ import java.util.List;
 public class MessageController {
 
     private final MessageService messageService;
+    private final UserService userService;
 
     /**
      * 获取消息列表
@@ -73,6 +75,30 @@ public class MessageController {
             @RequestParam String content,
             @RequestParam String type) {
         messageService.sendMessage(userId, content, type);
+        return Result.success(null);
+    }
+
+    /**
+     * 内部接口：发送消息（供其他服务Feign调用，无需鉴权）
+     */
+    @PostMapping("/internal/send")
+    public Result<Void> sendInternalMessage(
+            @RequestParam Long userId,
+            @RequestParam String content,
+            @RequestParam String type) {
+        messageService.sendMessage(userId, content, type);
+        return Result.success(null);
+    }
+
+    /**
+     * 内部接口：向所有管理员发送消息
+     */
+    @PostMapping("/internal/send-to-admins")
+    public Result<Void> sendToAllAdmins(
+            @RequestParam String content,
+            @RequestParam String type) {
+        List<Long> adminIds = userService.getAdminUserIds();
+        messageService.sendBatchMessage(adminIds, content, type);
         return Result.success(null);
     }
 }

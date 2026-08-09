@@ -109,6 +109,12 @@ public class DeviceController {
         return Result.success("设备已锁定", null);
     }
 
+    @PostMapping("/{deviceId}/unlock")
+    public Result<Void> unlockDevice(@PathVariable Long deviceId) {
+        deviceService.unlockDevice(deviceId);
+        return Result.success("设备已解锁", null);
+    }
+
     @GetMapping("/stats/count")
     public Result<Long> getDeviceCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(deviceService.countDevices());

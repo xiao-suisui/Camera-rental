@@ -5,6 +5,7 @@ import com.example.camerarental.common.mq.OrderNotificationEvent;
 import com.example.camerarental.user.entity.MqConsumeLog;
 import com.example.camerarental.user.mapper.MqConsumeLogMapper;
 import com.example.camerarental.user.service.MessageService;
+import com.example.camerarental.user.service.UserService;
 import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -31,6 +33,7 @@ public class OrderNotificationConsumer {
 
     private final MqConsumeLogMapper mqConsumeLogMapper;
     private final MessageService messageService;
+    private final UserService userService;
 
     @Transactional(rollbackFor = Exception.class)
     @RabbitListener(queues = MqConstants.USER_NOTIFY_QUEUE)
@@ -57,7 +60,12 @@ public class OrderNotificationConsumer {
                 return;
             }
 
-            messageService.sendMessage(event.getUserId(), event.getContent(), event.getMessageType());
+            if (event.getTargetRole() != null && !event.getTargetRole().isBlank()) {
+                List<Long> userIds = userService.getAdminUserIds();
+                messageService.sendBatchMessage(userIds, event.getContent(), event.getMessageType());
+            } else {
+                messageService.sendMessage(event.getUserId(), event.getContent(), event.getMessageType());
+            }
             channel.basicAck(deliveryTag, false);
             log.info("Consumed order notification event: eventId={}, eventType={}", eventId, event.getEventType());
         } catch (Exception ex) {

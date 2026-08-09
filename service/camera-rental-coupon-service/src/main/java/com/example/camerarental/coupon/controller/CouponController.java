@@ -5,6 +5,7 @@ import com.example.camerarental.common.annotation.RepeatSubmit;
 import com.example.camerarental.common.enums.ErrorCode;
 import com.example.camerarental.common.exception.BusinessException;
 import com.example.camerarental.common.result.Result;
+import com.example.camerarental.coupon.dto.CouponAvailableDTO;
 import com.example.camerarental.coupon.dto.CouponCreateRequest;
 import com.example.camerarental.coupon.dto.CouponReceiveRequest;
 import com.example.camerarental.coupon.dto.UserCouponDTO;
@@ -61,8 +62,9 @@ public class CouponController {
     }
 
     @GetMapping("/available")
-    public Result<List<Coupon>> listAvailable() {
-        return Result.success(couponService.listAvailableCoupons());
+    public Result<List<CouponAvailableDTO>> listAvailable(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        return Result.success(couponService.listAvailableCoupons(userId));
     }
 
     @PostMapping("/consume")

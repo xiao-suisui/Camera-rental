@@ -81,7 +81,17 @@ public class ChatService {
                 conv.setDeletedByUser2(0);
                 needRestore = true;
             }
-            if (needRestore) {
+            // 补充关联信息（从设备详情页创建的会话没有orderId，从订单详情页进入时需要补充）
+            boolean needUpdate = false;
+            if (orderId != null && conv.getOrderId() == null) {
+                conv.setOrderId(orderId);
+                needUpdate = true;
+            }
+            if (deviceId != null && conv.getDeviceId() == null) {
+                conv.setDeviceId(deviceId);
+                needUpdate = true;
+            }
+            if (needRestore || needUpdate) {
                 conversationMapper.updateById(conv);
             }
         }

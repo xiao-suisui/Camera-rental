@@ -41,7 +41,14 @@ public enum ErrorCode {
     COUPON_OUT_OF_STOCK(5002, "优惠券已抢光"),
     COUPON_RECEIVED(5003, "优惠券已领取"),
     COUPON_EXPIRED(5004, "优惠券已过期"),
-    COUPON_NOT_MEET_THRESHOLD(5005, "未满足优惠券使用门槛");
+    COUPON_NOT_MEET_THRESHOLD(5005, "未满足优惠券使用门槛"),
+
+    // 纠纷模块 6xxx
+    DISPUTE_NOT_FOUND(6001, "纠纷不存在"),
+    DISPUTE_ALREADY_EXISTS(6002, "该订单已有进行中的纠纷"),
+    DISPUTE_STATUS_ERROR(6003, "纠纷状态错误"),
+    DISPUTE_ORDER_STATUS_INVALID(6004, "当前订单状态不允许申请纠纷"),
+    DISPUTE_DESCRIPTION_TOO_SHORT(6005, "纠纷描述不能少于10个字");
 
     private final Integer code;
     private final String message;

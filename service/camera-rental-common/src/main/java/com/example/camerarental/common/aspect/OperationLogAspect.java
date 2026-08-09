@@ -31,7 +31,6 @@ import java.util.Set;
 @Component
 @RequiredArgsConstructor
 @ConditionalOnClass(HttpServletRequest.class)
-@ConditionalOnBean(OperationLogMapper.class)
 public class OperationLogAspect {
 
     private final OperationLogMapper operationLogMapper;

@@ -249,6 +249,23 @@ public class DeviceService {
     }
 
     @Transactional
+    @CacheEvict(value = "device", key = "#deviceId")
+    public void unlockDevice(Long deviceId) {
+        int rows = deviceMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Device>()
+                        .eq(Device::getId, deviceId)
+                        .eq(Device::getStatus, DeviceStatus.RENTED.getValue())
+                        .set(Device::getStatus, DeviceStatus.ACTIVE.getValue())
+                        .set(Device::getUpdatedAt, LocalDateTime.now())
+        );
+        if (rows == 0) {
+            log.warn("Device unlock skipped (not in RENTED status): deviceId={}", deviceId);
+            return;
+        }
+        log.info("Device unlocked: deviceId={}", deviceId);
+    }
+
+    @Transactional
     @OperationLog(type = "DEVICE_OFFLINE", description = "下架设备")
     @CacheEvict(value = "device", key = "#deviceId")
     public void offlineDevice(Long deviceId, Long operatorUserId, String operatorRole) {

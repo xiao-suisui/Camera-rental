@@ -16,7 +16,7 @@
           <ImageUpload
             v-model="avatarList"
             :max-count="1"
-            :max-size="2"
+            :max-size="5"
           />
         </el-form-item>
 

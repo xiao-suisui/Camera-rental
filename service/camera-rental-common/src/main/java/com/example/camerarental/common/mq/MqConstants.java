@@ -19,12 +19,18 @@ public final class MqConstants {
     public static final String COUPON_SYNC_DLQ = "camera.rental.coupon.sync.q.dlq";
 
     public static final String ORDER_NOTIFY_USER_ROUTING_KEY = "order.*.notify.user";
+    public static final String ORDER_CREATED_NOTIFY_USER_KEY = "order.created.notify.user";
+    public static final String ORDER_PAID_NOTIFY_USER_KEY = "order.paid.notify.user";
     public static final String ORDER_SHIPPED_NOTIFY_USER_KEY = "order.shipped.notify.user";
     public static final String ORDER_RECEIVED_NOTIFY_USER_KEY = "order.received.notify.user";
     public static final String ORDER_RETURN_APPLIED_NOTIFY_USER_KEY = "order.return.applied.notify.user";
     public static final String ORDER_RETURN_CONFIRMED_NOTIFY_USER_KEY = "order.return.confirmed.notify.user";
+    public static final String ORDER_CANCELLED_NOTIFY_USER_KEY = "order.cancelled.notify.user";
     public static final String ORDER_CANCELLED_RELEASE_STOCK_KEY = "order.cancelled.release.stock";
     public static final String ORDER_CANCELLED_ROLLBACK_COUPON_KEY = "order.cancelled.rollback.coupon";
+
+    public static final String DISPUTE_CREATED_NOTIFY_ADMIN_KEY = "dispute.created.notify.admin";
+    public static final String DISPUTE_RESOLVED_NOTIFY_USER_KEY = "dispute.resolved.notify.user";
 
     public static final String USER_NOTIFY_DLQ_ROUTING_KEY = "order.notify.user.dead";
     public static final String DEVICE_SYNC_DLQ_ROUTING_KEY = "order.cancelled.release.stock.dead";

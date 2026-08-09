@@ -24,8 +24,20 @@ public class OrderNotificationProducer {
     private final MqOutboxMessageMapper outboxMessageMapper;
     private final ObjectMapper objectMapper;
 
+    public void sendCreatedNotification(String orderNo, Long userId, String content) {
+        send(MqConstants.ORDER_CREATED_NOTIFY_USER_KEY, "order.created", orderNo, userId, content);
+    }
+
+    public void sendPaidNotification(String orderNo, Long userId, String content) {
+        send(MqConstants.ORDER_PAID_NOTIFY_USER_KEY, "order.paid", orderNo, userId, content);
+    }
+
     public void sendShippedNotification(String orderNo, Long userId, String content) {
         send(MqConstants.ORDER_SHIPPED_NOTIFY_USER_KEY, "order.shipped", orderNo, userId, content);
+    }
+
+    public void sendCancelledNotification(String orderNo, Long userId, String content) {
+        send(MqConstants.ORDER_CANCELLED_NOTIFY_USER_KEY, "order.cancelled", orderNo, userId, content);
     }
 
     public void sendReturnAppliedNotification(String orderNo, Long userId, String content) {
@@ -38,6 +50,33 @@ public class OrderNotificationProducer {
 
     public void sendReceivedNotification(String orderNo, Long userId, String content) {
         send(MqConstants.ORDER_RECEIVED_NOTIFY_USER_KEY, "order.received", orderNo, userId, content);
+    }
+
+    public void sendDisputeCreatedNotifyAdmins(String orderNo, String content) {
+        String eventId = UUID.randomUUID().toString().replace("-", "");
+
+        OrderNotificationEvent event = OrderNotificationEvent.builder()
+                .eventId(eventId)
+                .eventType("dispute.created")
+                .eventVersion(1)
+                .occurredAt(LocalDateTime.now())
+                .traceId(eventId)
+                .producer(PRODUCER)
+                .aggregateId(orderNo)
+                .userId(null)
+                .targetRole("ADMIN")
+                .content(content)
+                .messageType("SYSTEM")
+                .build();
+
+        saveOutbox(eventId, "dispute.created", orderNo,
+                MqConstants.DISPUTE_CREATED_NOTIFY_ADMIN_KEY, toJson(event));
+
+        log.info("Outbox dispute admin notification created: eventId={}, orderNo={}", eventId, orderNo);
+    }
+
+    public void sendDisputeResolvedNotifyUser(String orderNo, Long userId, String content) {
+        send(MqConstants.DISPUTE_RESOLVED_NOTIFY_USER_KEY, "dispute.resolved", orderNo, userId, content);
     }
 
     public void sendOrderCancelledCompensation(String orderNo, Long userId, Long deviceId, Long couponId) {

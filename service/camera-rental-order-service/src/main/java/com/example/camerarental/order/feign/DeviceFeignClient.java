@@ -18,5 +18,8 @@ public interface DeviceFeignClient {
 
     @PostMapping("/{deviceId}/lock")
     Result<Void> lockDevice(@PathVariable("deviceId") Long deviceId);
+
+    @PostMapping("/{deviceId}/unlock")
+    Result<Void> unlockDevice(@PathVariable("deviceId") Long deviceId);
 }
 

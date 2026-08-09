@@ -76,6 +76,13 @@ spring:
           filters:
             - StripPrefix=0
           order: 100
+        - id: dispute-service
+          uri: lb://camera-rental-order-service
+          predicates:
+            - Path=/dispute/**
+          filters:
+            - StripPrefix=0
+          order: 100
 
       globalcors:
         cors-configurations:

@@ -28,5 +28,11 @@ public class OrderNotificationEvent implements Serializable {
     private Long userId;
     private String content;
     private String messageType;
+
+    /**
+     * 按角色广播时使用（如通知所有管理员）。
+     * 当 targetRole 非空且 userId 为空时，消费端按角色查询用户列表并批量发送。
+     */
+    private String targetRole;
 }
 

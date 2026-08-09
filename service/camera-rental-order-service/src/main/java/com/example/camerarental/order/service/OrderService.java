@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -45,7 +46,9 @@ public class OrderService {
     private final CouponFeignClient couponFeignClient;
     private final OrderNotificationProducer orderNotificationProducer;
 
-    @Transactional(rollbackFor = Exception.class)
+    /**
+     * 创建订单（事务外方法，协调订单创建和优惠券消费）
+     */
     public OrderCreateResponse createOrder(OrderCreateRequest request, Long operatorUserId, String operatorRole) {
         if (operatorUserId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "未获取到用户身份信息");
@@ -111,7 +114,49 @@ public class OrderService {
             throw new BusinessException(ErrorCode.DEVICE_NOT_AVAILABLE, "设备锁定失败，可能已被其他用户下单");
         }
 
-        // 5. 创建订单
+        // 5. 在新事务中创建订单（确保订单先提交到数据库）
+        Order order = createOrderInNewTransaction(request, operatorUserId, device, totalRent, discountAmount, payAmount);
+        log.info("Order created and committed: orderNo={}", order.getOrderNo());
+
+        // 通知出租者有新订单
+        try {
+            orderNotificationProducer.sendCreatedNotification(
+                    order.getOrderNo(),
+                    order.getLessorId(),
+                    String.format("您有一笔新订单 %s，等待租用者支付", order.getOrderNo())
+            );
+        } catch (Exception e) {
+            log.error("Failed to create order-created notification outbox event", e);
+        }
+
+        // 6. 标记优惠券为已使用（事务已提交，优惠券服务可以读取订单）
+        if (request.getCouponId() != null) {
+            try {
+                Result<Void> consumeResult = couponFeignClient.consumeCoupon(request.getCouponId(), order.getId(), operatorUserId);
+                if (consumeResult == null || consumeResult.getCode() == null || consumeResult.getCode() != 0) {
+                    // 优惠券消费失败，补偿回滚订单
+                    compensateOrderRollback(order, request.getDeviceId());
+                    throw new BusinessException(ErrorCode.SYSTEM_ERROR, "优惠券消费失败，请稍后重试");
+                }
+            } catch (BusinessException e) {
+                throw e;
+            } catch (Exception e) {
+                log.error("优惠券消费异常，补偿回滚订单: orderNo={}", order.getOrderNo(), e);
+                compensateOrderRollback(order, request.getDeviceId());
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "优惠券消费失败，请稍后重试");
+            }
+        }
+
+        return new OrderCreateResponse(order.getOrderNo(), totalRent, discountAmount, payAmount);
+    }
+
+    /**
+     * 在新事务中创建订单（REQUIRES_NEW 确保订单立即提交）
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public Order createOrderInNewTransaction(OrderCreateRequest request, Long operatorUserId,
+                                              DeviceDTO device, BigDecimal totalRent,
+                                              BigDecimal discountAmount, BigDecimal payAmount) {
         Order order = new Order();
         order.setOrderNo(generateOrderNo());
         order.setUserId(operatorUserId);
@@ -130,17 +175,31 @@ public class OrderService {
         order.setUpdatedAt(LocalDateTime.now());
 
         orderMapper.insert(order);
-        log.info("Order created: orderNo={}", order.getOrderNo());
+        return order;
+    }
 
-        // 6. 标记优惠券为已使用
-        if (request.getCouponId() != null) {
-            Result<Void> consumeResult = couponFeignClient.consumeCoupon(request.getCouponId(), order.getId(), operatorUserId);
-            if (consumeResult == null || consumeResult.getCode() == null || consumeResult.getCode() != 0) {
-                log.warn("优惠券消费失败，订单已创建但优惠券状态未更新: couponId={}, orderNo={}", request.getCouponId(), order.getOrderNo());
-            }
+    /**
+     * 补偿回滚：优惠券消费失败时，回滚订单和设备锁定
+     */
+    private void compensateOrderRollback(Order order, Long deviceId) {
+        // 回滚订单状态为 CANCELED
+        try {
+            orderMapper.update(null, new LambdaUpdateWrapper<Order>()
+                    .eq(Order::getId, order.getId())
+                    .eq(Order::getStatus, OrderStatus.PENDING_PAY.getValue())
+                    .set(Order::getStatus, OrderStatus.CANCELED.getValue())
+                    .set(Order::getUpdatedAt, LocalDateTime.now()));
+            log.info("订单补偿回滚成功: orderNo={}", order.getOrderNo());
+        } catch (Exception ex) {
+            log.error("订单补偿回滚失败，需人工处理: orderNo={}", order.getOrderNo(), ex);
         }
 
-        return new OrderCreateResponse(order.getOrderNo(), totalRent, discountAmount, payAmount);
+        // 回滚设备锁定
+        try {
+            deviceFeignClient.unlockDevice(deviceId);
+        } catch (Exception ex) {
+            log.error("设备锁定回滚失败，需人工处理: deviceId={}", deviceId, ex);
+        }
     }
 
     @Transactional
@@ -160,6 +219,17 @@ public class OrderService {
             throw new BusinessException(ErrorCode.ORDER_STATUS_ERROR, "订单状态已变更，无法支付");
         }
         log.info("Order paid: orderId={}", orderId);
+
+        // 通知出租者订单已支付
+        try {
+            orderNotificationProducer.sendPaidNotification(
+                    order.getOrderNo(),
+                    order.getLessorId(),
+                    String.format("订单 %s 已支付，请尽快发货", order.getOrderNo())
+            );
+        } catch (Exception e) {
+            log.error("Failed to create order-paid notification outbox event", e);
+        }
     }
 
     @Transactional
@@ -276,6 +346,13 @@ public class OrderService {
         }
         log.info("Order return confirmed: orderId={}, condition={}", orderId, condition);
 
+        // 释放设备状态（RENTED → ACTIVE）
+        try {
+            deviceFeignClient.unlockDevice(order.getDeviceId());
+        } catch (Exception e) {
+            log.error("设备释放失败，需人工处理: deviceId={}", order.getDeviceId(), e);
+        }
+
         // 通过 Outbox + MQ 异步通知租用者
         try {
             orderNotificationProducer.sendReturnConfirmedNotification(
@@ -301,6 +378,17 @@ public class OrderService {
                 OrderStatus.PENDING_PAY.getValue(), OrderStatus.CANCELED.getValue());
         if (rows == 0) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "订单状态已变更，只能取消待支付订单");
+        }
+
+        // 通知出租者订单已取消
+        try {
+            orderNotificationProducer.sendCancelledNotification(
+                    order.getOrderNo(),
+                    order.getLessorId(),
+                    String.format("订单 %s 已被租用者取消", order.getOrderNo())
+            );
+        } catch (Exception e) {
+            log.error("Failed to create order-cancelled notification outbox event", e);
         }
 
         // 通过 Outbox + MQ 发送取消补偿事件（释放设备库存/回滚优惠券）

@@ -15,6 +15,7 @@
           <router-link to="/devices" class="nav-item" active-class="active">设备列表</router-link>
           <router-link to="/coupon-center" class="nav-item" active-class="active">优惠券</router-link>
           <router-link to="/device/publish" class="nav-item" active-class="active" v-if="userStore.isLogin">发布设备</router-link>
+          <router-link to="/profile" class="nav-item" active-class="active" v-if="userStore.isLogin">个人中心</router-link>
         </nav>
 
         <div class="header-actions">
@@ -271,14 +272,14 @@ const handleCommand = async (cmd) => {
 
 /* Footer */
 .footer { background: #1a1a2e; color: #94a3b8; margin-top: 40px; }
-.footer-inner { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+.footer-inner { max-width: 960px; margin: 0 auto; padding: 0 24px; }
 .footer-top {
   display: flex; justify-content: space-between;
-  padding: 48px 0 32px; border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 36px 0 24px; border-bottom: 1px solid rgba(255,255,255,0.08);
 }
-.footer-brand { max-width: 300px; }
+.footer-brand { max-width: 260px; }
 .footer-desc { margin-top: 12px; font-size: 14px; line-height: 1.6; color: #64748b; }
-.footer-links { display: flex; gap: 64px; }
+.footer-links { display: flex; gap: 48px; }
 .link-group h4 { color: #e2e8f0; font-size: 14px; font-weight: 600; margin-bottom: 16px; }
 .link-group a {
   display: block; color: #64748b; font-size: 14px; margin-bottom: 10px;

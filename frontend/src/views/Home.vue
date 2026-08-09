@@ -124,6 +124,7 @@ onMounted(() => { loadHotDevices() })
 .hero-content {
   position: relative; z-index: 1;
   max-width: 680px;
+  padding-left: 60px;
 }
 .hero-badge {
   display: inline-block;

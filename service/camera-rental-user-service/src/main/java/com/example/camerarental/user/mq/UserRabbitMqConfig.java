@@ -41,6 +41,20 @@ public class UserRabbitMqConfig {
     }
 
     @Bean
+    public Binding disputeCreatedNotifyBinding(Queue userNotifyQueue, TopicExchange orderTopicExchange) {
+        return BindingBuilder.bind(userNotifyQueue)
+                .to(orderTopicExchange)
+                .with(MqConstants.DISPUTE_CREATED_NOTIFY_ADMIN_KEY);
+    }
+
+    @Bean
+    public Binding disputeResolvedNotifyBinding(Queue userNotifyQueue, TopicExchange orderTopicExchange) {
+        return BindingBuilder.bind(userNotifyQueue)
+                .to(orderTopicExchange)
+                .with(MqConstants.DISPUTE_RESOLVED_NOTIFY_USER_KEY);
+    }
+
+    @Bean
     public Binding userNotifyDlqBinding(Queue userNotifyDlq, DirectExchange orderDeadLetterExchange) {
         return BindingBuilder.bind(userNotifyDlq)
                 .to(orderDeadLetterExchange)

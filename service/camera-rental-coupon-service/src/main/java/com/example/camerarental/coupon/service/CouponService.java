@@ -7,6 +7,7 @@ import com.example.camerarental.common.enums.CouponUseStatus;
 import com.example.camerarental.common.enums.ErrorCode;
 import com.example.camerarental.common.exception.BusinessException;
 import com.example.camerarental.common.mq.OrderCancelledEvent;
+import com.example.camerarental.coupon.dto.CouponAvailableDTO;
 import com.example.camerarental.coupon.dto.CouponCreateRequest;
 import com.example.camerarental.coupon.dto.CouponReceiveRequest;
 import com.example.camerarental.coupon.dto.UserCouponDTO;
@@ -185,6 +186,13 @@ public class CouponService {
         );
     }
 
+    public List<CouponAvailableDTO> listAvailableCoupons(Long userId) {
+        if (userId != null) {
+            return couponMapper.selectAvailableWithReceived(userId);
+        }
+        return couponMapper.selectAvailable();
+    }
+
     /**
      * 标记优惠券为已使用（由 order-service 在创建订单后调用）
      */
@@ -200,7 +208,6 @@ public class CouponService {
         if (userCoupon == null) {
             throw new BusinessException(ErrorCode.COUPON_NOT_FOUND, "无可用的未使用优惠券");
         }
-        // 校验过期
         if (userCoupon.getExpireTime() != null && userCoupon.getExpireTime().isBefore(LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.COUPON_EXPIRED, "优惠券已过期");
         }
@@ -209,7 +216,6 @@ public class CouponService {
         userCoupon.setOrderId(orderId);
         userCouponMapper.updateById(userCoupon);
 
-        // 删除 Redis 过期 key，防止消费后触发过期事件
         stringRedisTemplate.delete(USER_COUPON_EXPIRE_KEY + userCoupon.getId());
 
         log.info("Coupon consumed: userId={}, couponId={}, orderId={}", userId, couponId, orderId);

@@ -68,7 +68,7 @@ import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import {
   Camera, DataAnalysis, User, Ticket, Document,
-  HomeFilled, SwitchButton
+  HomeFilled, SwitchButton, Warning
 } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
@@ -77,13 +77,15 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const pendingCount = ref(0)
+const disputePendingCount = ref(0)
 
 const menuItems = computed(() => [
   { path: '/admin/dashboard', label: '数据看板', icon: DataAnalysis },
   { path: '/admin/devices', label: '设备审核', icon: Camera, badge: pendingCount.value > 0 ? pendingCount.value : null },
   { path: '/admin/users', label: '用户管理', icon: User },
   { path: '/admin/coupons', label: '优惠券管理', icon: Ticket },
-  { path: '/admin/orders', label: '订单管理', icon: Document }
+  { path: '/admin/orders', label: '订单管理', icon: Document },
+  { path: '/admin/disputes', label: '纠纷调解', icon: Warning, badge: disputePendingCount.value > 0 ? disputePendingCount.value : null }
 ])
 
 const activeMenu = computed(() => route.path)
@@ -105,6 +107,10 @@ onMounted(async () => {
   try {
     const res = await request.get('/device/stats/pending')
     pendingCount.value = res.data || 0
+  } catch (e) { /* ignore */ }
+  try {
+    const disputeRes = await request.get('/dispute/admin/stats/pending')
+    disputePendingCount.value = disputeRes.data || 0
   } catch (e) { /* ignore */ }
 })
 </script>

@@ -6,6 +6,7 @@ import com.example.camerarental.common.enums.ErrorCode;
 import com.example.camerarental.common.exception.BusinessException;
 import com.example.camerarental.device.entity.Device;
 import com.example.camerarental.device.entity.DeviceFavorite;
+import com.example.camerarental.common.service.MinioService;
 import com.example.camerarental.device.mapper.DeviceFavoriteMapper;
 import com.example.camerarental.device.mapper.DeviceMapper;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class FavoriteService {
     private static final int MAX_FAVORITE_COUNT = 50; // 最多收藏50个
     private final DeviceFavoriteMapper favoriteMapper;
     private final DeviceMapper deviceMapper;
+    private final MinioService minioService;
 
     /**
      * 收藏设备
@@ -122,7 +124,9 @@ public class FavoriteService {
                 .map(DeviceFavorite::getDeviceId)
                 .collect(Collectors.toList());
 
-        return deviceMapper.selectBatchIds(deviceIds);
+        List<Device> devices = deviceMapper.selectBatchIds(deviceIds);
+        devices.forEach(this::resolveImagePathsForRead);
+        return devices;
     }
 
     /**
@@ -133,6 +137,13 @@ public class FavoriteService {
                 new LambdaQueryWrapper<DeviceFavorite>()
                         .eq(DeviceFavorite::getUserId, userId)
         ));
+    }
+
+    private void resolveImagePathsForRead(Device device) {
+        if (device == null || device.getImagePaths() == null || device.getImagePaths().isBlank()) {
+            return;
+        }
+        device.setImagePaths(minioService.toSignedUrlPaths(device.getImagePaths()));
     }
 }
 

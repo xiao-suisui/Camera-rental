@@ -7,6 +7,13 @@
       <span class="chat-title">{{ otherNickname }}</span>
     </div>
 
+    <div v-if="disputeInfo" class="dispute-banner">
+      <el-tag :type="DISPUTE_STATUS[disputeInfo.status]?.type || 'info'" size="small">
+        纠纷：{{ DISPUTE_STATUS[disputeInfo.status]?.text || disputeInfo.status }}
+      </el-tag>
+      <span class="dispute-hint">订单 {{ disputeInfo.orderNo }} 存在纠纷工单</span>
+    </div>
+
     <div class="chat-messages" ref="messagesContainer">
       <div v-if="hasMore" class="load-more">
         <el-button text size="small" @click="loadMore">加载更多</el-button>
@@ -41,7 +48,44 @@
       <el-button type="primary" @click="sendMessage" :disabled="!inputMessage.trim()">
         发送
       </el-button>
+      <el-button
+        v-if="canApplyDispute"
+        type="warning"
+        @click="showDisputeDialog = true"
+      >
+        申请平台介入
+      </el-button>
     </div>
+
+    <!-- 纠纷申请弹窗 -->
+    <el-dialog v-model="showDisputeDialog" title="申请平台介入" width="500px">
+      <el-form :model="disputeForm" label-width="80px">
+        <el-form-item label="关联订单">
+          <span>{{ disputeForm.orderNo }}</span>
+        </el-form-item>
+        <el-form-item label="纠纷类型">
+          <el-radio-group v-model="disputeForm.disputeType">
+            <el-radio v-for="(label, key) in DISPUTE_TYPE" :key="key" :value="key">
+              {{ label }}
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="详细描述">
+          <el-input
+            v-model="disputeForm.description"
+            type="textarea"
+            :rows="4"
+            placeholder="请详细描述纠纷情况（至少10字）"
+            maxlength="2000"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showDisputeDialog = false">取消</el-button>
+        <el-button type="primary" @click="submitDispute" :loading="submittingDispute">提交</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -50,7 +94,11 @@ import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { chatApi } from '@/api/chat'
+import { disputeApi } from '@/api/dispute'
+import { orderApi } from '@/api/order'
+import { DISPUTE_TYPE, DISPUTE_STATUS } from '@/constants'
 import eventBus from '@/utils/eventBus'
+import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 
 const route = useRoute()
@@ -68,6 +116,24 @@ const hasMore = ref(true)
 const currentPage = ref(1)
 const pageSize = 20
 const messagesContainer = ref(null)
+
+const orderId = ref(null)
+const orderNo = ref(null)
+const orderStatus = ref(null)
+const disputeInfo = ref(null)
+const showDisputeDialog = ref(false)
+const submittingDispute = ref(false)
+const disputeForm = ref({
+  orderId: null,
+  orderNo: '',
+  disputeType: 'OTHER',
+  description: ''
+})
+
+const canApplyDispute = computed(() => {
+  if (!orderId.value || disputeInfo.value) return false
+  return ['PAID', 'TO_SHIP', 'TO_RETURN'].includes(orderStatus.value)
+})
 
 let ws = null
 let reconnectTimer = null
@@ -115,11 +181,13 @@ const loadConversationInfo = async () => {
     if (conv) {
       otherNickname.value = conv.otherNickname
       otherUserId.value = conv.otherUserId
-      console.log('Loaded conversation info, otherUserId:', conv.otherUserId)
+      if (conv.orderId) {
+        orderId.value = conv.orderId
+        loadOrderAndDispute(conv.orderId)
+      }
     }
   } catch (e) {
     console.error('Failed to load conversation info:', e)
-    // 如果获取失败，尝试从会话列表中查找
     try {
       const listRes = await chatApi.getConversations()
       const convs = listRes.data || []
@@ -127,10 +195,62 @@ const loadConversationInfo = async () => {
       if (conv) {
         otherNickname.value = conv.otherNickname
         otherUserId.value = conv.otherUserId
+        if (conv.orderId) {
+          orderId.value = conv.orderId
+          loadOrderAndDispute(conv.orderId)
+        }
       }
     } catch (listErr) {
       console.error('Failed to load conversation list:', listErr)
     }
+  }
+}
+
+const loadOrderAndDispute = async (oid) => {
+  try {
+    const orderRes = await orderApi.getDetail(oid)
+    if (orderRes.data) {
+      orderStatus.value = orderRes.data.status
+      orderNo.value = orderRes.data.orderNo
+      disputeForm.value.orderId = oid
+      disputeForm.value.orderNo = orderRes.data.orderNo
+    }
+  } catch (e) {
+    console.error('Failed to load order info:', e)
+  }
+  try {
+    const disputeRes = await disputeApi.getByOrderId(oid)
+    disputeInfo.value = disputeRes.data || null
+  } catch (e) {
+    disputeInfo.value = null
+  }
+}
+
+const submitDispute = async () => {
+  if (!disputeForm.value.disputeType) {
+    ElMessage.warning('请选择纠纷类型')
+    return
+  }
+  if (disputeForm.value.description.length < 10) {
+    ElMessage.warning('纠纷描述至少10个字')
+    return
+  }
+  submittingDispute.value = true
+  try {
+    await disputeApi.create({
+      orderId: disputeForm.value.orderId,
+      disputeType: disputeForm.value.disputeType,
+      description: disputeForm.value.description
+    })
+    ElMessage.success('纠纷已提交，平台将尽快处理')
+    showDisputeDialog.value = false
+    disputeForm.value.description = ''
+    disputeForm.value.disputeType = 'OTHER'
+    loadOrderAndDispute(disputeForm.value.orderId)
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.message || e?.message || '提交失败')
+  } finally {
+    submittingDispute.value = false
   }
 }
 
@@ -276,6 +396,21 @@ onUnmounted(() => {
   background: #fff;
   border-bottom: 1px solid #f0f0f0;
   flex-shrink: 0;
+}
+
+.dispute-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #fef3c7;
+  border-bottom: 1px solid #fde68a;
+  flex-shrink: 0;
+}
+
+.dispute-hint {
+  font-size: 13px;
+  color: #92400e;
 }
 
 .chat-title {

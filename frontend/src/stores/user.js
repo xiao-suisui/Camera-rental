@@ -38,7 +38,10 @@ export const useUserStore = defineStore('user', () => {
       setUserInfo({
         userId: res.data.userId,
         nickname: res.data.nickname,
-        role: res.data.role
+        role: res.data.role,
+        avatar: res.data.avatar,
+        address: res.data.address,
+        phone: res.data.phone
       })
       return true
     }

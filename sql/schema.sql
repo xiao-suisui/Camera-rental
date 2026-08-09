@@ -32,6 +32,8 @@
       image_paths TEXT NOT NULL,
       rent_price DECIMAL(10,2) NOT NULL,
       deposit DECIMAL(10,2) NOT NULL,
+
+
       address VARCHAR(128) NOT NULL,
       audit_status ENUM('PENDING','APPROVED','REJECTED') NOT NULL,
       status ENUM('ACTIVE','OFFLINE','RENTED') NOT NULL,
@@ -258,4 +260,25 @@
       KEY idx_msg_receiver (receiver_id, is_read),
       CONSTRAINT fk_chat_msg_conv FOREIGN KEY (conversation_id) REFERENCES chat_conversation(id)
     ) ENGINE=InnoDB;
+
+-- 纠纷表
+CREATE TABLE IF NOT EXISTS dispute (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  order_id BIGINT NOT NULL,
+  order_no VARCHAR(64) NOT NULL,
+  initiator_id BIGINT NOT NULL COMMENT '发起人',
+  respondent_id BIGINT NOT NULL COMMENT '被申请人',
+  device_id BIGINT NOT NULL,
+  dispute_type ENUM('DEVICE_DAMAGE','DEPOSIT_DISPUTE','OVERDUE','DESCRIPTION_MISMATCH','OTHER') NOT NULL,
+  description VARCHAR(2000) NOT NULL,
+  status ENUM('SUBMITTED','PROCESSING','RESOLVED','REJECTED') NOT NULL DEFAULT 'SUBMITTED',
+  admin_id BIGINT DEFAULT NULL COMMENT '处理管理员',
+  admin_remark VARCHAR(2000) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_dispute_order (order_id),
+  KEY idx_dispute_initiator (initiator_id),
+  KEY idx_dispute_status (status)
+) ENGINE=InnoDB;
 

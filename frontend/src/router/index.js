@@ -163,6 +163,11 @@ const routes = [
         path: 'orders',
         name: 'AdminOrders',
         component: () => import('@/views/admin/AdminOrderList.vue')
+      },
+      {
+        path: 'disputes',
+        name: 'AdminDisputes',
+        component: () => import('@/views/admin/DisputeManage.vue')
       }
     ]
   },
