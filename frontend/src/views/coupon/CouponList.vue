@@ -82,7 +82,7 @@ const usedCoupons = computed(() => {
 
 const loadCoupons = async () => {
   try {
-    const res = await getUserCoupons(userStore.userInfo.userId)
+    const res = await getUserCoupons()
     coupons.value = res.data || []
   } catch (error) {
     console.error(error)

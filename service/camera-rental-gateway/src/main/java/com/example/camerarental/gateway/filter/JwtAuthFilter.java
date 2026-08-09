@@ -42,6 +42,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             Pattern.compile("^/actuator/health(?:/.*)?$")
     );
 
+    // WebSocket 连接（token 通过 URL 参数传递）
+    private static final List<Pattern> WS_PUBLIC_PATTERNS = List.of(
+            Pattern.compile("^/ws/chat.*$")
+    );
+
     private static final List<String> MANAGEMENT_PATH_PATTERNS = List.of(
             "/doc.html",
             "/favicon.ico",
@@ -94,6 +99,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return chain.filter(withGatewayHeaders(exchange, clientIp));
         }
 
+        if (isWebSocketPath(path)) {
+            return chain.filter(withGatewayHeaders(exchange, clientIp));
+        }
+
         String authorization = request.getHeaders().getFirst(HEADER_AUTHORIZATION);
         if (!StringUtils.hasText(authorization) || !authorization.startsWith(HEADER_BEARER_PREFIX)) {
             return writeJson(exchange, HttpStatus.UNAUTHORIZED, 1002, "Unauthorized");
@@ -137,6 +146,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         return MANAGEMENT_PATH_PATTERNS.stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, path));
     }
 
+    private boolean isWebSocketPath(String path) {
+        return WS_PUBLIC_PATTERNS.stream().anyMatch(pattern -> pattern.matcher(path).matches());
+    }
+
     private boolean isBrowserPreflight(ServerHttpRequest request) {
         return HttpMethod.OPTIONS.equals(request.getMethod())
                 && StringUtils.hasText(request.getHeaders().getOrigin())
@@ -152,16 +165,9 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     }
 
     private String extractClientIp(ServerHttpRequest request) {
-        String xForwardedFor = request.getHeaders().getFirst("X-Forwarded-For");
-        if (StringUtils.hasText(xForwardedFor)) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-
-        String xRealIp = request.getHeaders().getFirst("X-Real-IP");
-        if (StringUtils.hasText(xRealIp)) {
-            return xRealIp.trim();
-        }
-
+        // Security: do NOT trust client-supplied X-Forwarded-For / X-Real-IP headers.
+        // An attacker can forge these to bypass IP whitelists.
+        // Always use the actual remote address from the TCP connection.
         if (request.getRemoteAddress() == null || request.getRemoteAddress().getAddress() == null) {
             return "unknown";
         }

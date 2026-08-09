@@ -15,6 +15,7 @@
           <router-link to="/devices" class="nav-item" active-class="active">设备列表</router-link>
           <router-link to="/coupon-center" class="nav-item" active-class="active">优惠券</router-link>
           <router-link to="/device/publish" class="nav-item" active-class="active" v-if="userStore.isLogin">发布设备</router-link>
+          <router-link to="/profile" class="nav-item" active-class="active" v-if="userStore.isLogin">个人中心</router-link>
         </nav>
 
         <div class="header-actions">
@@ -22,6 +23,12 @@
             <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
               <el-button class="icon-btn" circle @click="$router.push('/messages')">
                 <el-icon :size="18"><Bell /></el-icon>
+              </el-button>
+            </el-badge>
+
+            <el-badge :value="chatUnreadCount" :hidden="chatUnreadCount === 0" :max="99">
+              <el-button class="icon-btn" circle @click="$router.push('/chat')">
+                <el-icon :size="18"><ChatDotRound /></el-icon>
               </el-button>
             </el-badge>
 
@@ -46,6 +53,9 @@
                   </el-dropdown-item>
                   <el-dropdown-item command="favorites">
                     <el-icon><Star /></el-icon>我的收藏
+                  </el-dropdown-item>
+                  <el-dropdown-item command="chat">
+                    <el-icon><ChatDotRound /></el-icon>我的聊天
                   </el-dropdown-item>
                   <el-dropdown-item command="coupons">
                     <el-icon><Ticket /></el-icon>我的优惠券
@@ -121,53 +131,80 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import axios from 'axios'
+import { chatApi } from '@/api/chat'
+import { messageApi } from '@/api/message'
+import eventBus from '@/utils/eventBus'
 import { ElMessage } from 'element-plus'
 import {
   Bell, ArrowDown, Camera, Document, Star, Ticket,
-  User, Lock, Setting, SwitchButton
+  User, Lock, Setting, SwitchButton, ChatDotRound
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 const isScrolled = ref(false)
 const unreadCount = ref(0)
+const chatUnreadCount = ref(0)
 
 const handleScroll = () => { isScrolled.value = window.scrollY > 10 }
 onMounted(() => {
   window.addEventListener('scroll', handleScroll)
-  if (userStore.token) { loadUnreadCount(); startPolling() }
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  eventBus.on('chat:message', loadChatUnreadCount)
+  eventBus.on('message:updated', loadUnreadCount)
+  if (userStore.token) { loadUnreadCount(); loadChatUnreadCount(); startPolling() }
 })
-onUnmounted(() => { window.removeEventListener('scroll', handleScroll); stopPolling() })
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  eventBus.off('chat:message', loadChatUnreadCount)
+  eventBus.off('message:updated', loadUnreadCount)
+  stopPolling()
+})
 
 const loadUnreadCount = async () => {
   if (!userStore.token || !userStore.userInfo.userId) return
   try {
-    const res = await axios.get(`/api/message/unread-count`, {
-      params: { userId: userStore.userInfo.userId },
-      headers: { 'Authorization': `Bearer ${userStore.token}` },
-      timeout: 5000
-    })
-    if (res.data?.code === 0) {
-      unreadCount.value = res.data.data || 0
-    }
+    const res = await messageApi.getUnreadCount()
+    unreadCount.value = res.data || 0
+  } catch (e) { /* 静默，不影响页面 */ }
+}
+
+const loadChatUnreadCount = async () => {
+  if (!userStore.token || !userStore.userInfo.userId) return
+  try {
+    const res = await chatApi.getUnreadTotal()
+    chatUnreadCount.value = res.data || 0
   } catch (e) { /* 静默，不影响页面 */ }
 }
 
 let timer = null
-const startPolling = () => { if (timer) clearInterval(timer); timer = setInterval(loadUnreadCount, 30000) }
+const startPolling = () => {
+  if (timer) clearInterval(timer)
+  timer = setInterval(() => { loadUnreadCount(); loadChatUnreadCount() }, 30000)
+}
 const stopPolling = () => { if (timer) { clearInterval(timer); timer = null } }
 
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    stopPolling()
+  } else if (userStore.token) {
+    loadUnreadCount()
+    loadChatUnreadCount()
+    startPolling()
+  }
+}
+
 watch(() => userStore.token, (v) => {
-  if (v) { loadUnreadCount(); startPolling() }
-  else { unreadCount.value = 0; stopPolling() }
+  if (v) { loadUnreadCount(); loadChatUnreadCount(); startPolling() }
+  else { unreadCount.value = 0; chatUnreadCount.value = 0; stopPolling() }
 })
 
 const handleCommand = async (cmd) => {
   const map = {
     profile: '/profile', 'edit-profile': '/profile/edit', 'change-password': '/change-password',
     'my-devices': '/my-devices', favorites: '/favorites', orders: '/orders', 'lessor-orders': '/lessor-orders',
-    coupons: '/coupons', messages: '/messages', admin: '/admin/dashboard'
+    coupons: '/coupons', messages: '/messages', chat: '/chat', admin: '/admin/dashboard'
   }
   if (cmd === 'logout') { stopPolling(); await userStore.logout(); ElMessage.success('退出成功'); router.push('/'); return }
   if (map[cmd]) router.push(map[cmd])
@@ -235,14 +272,14 @@ const handleCommand = async (cmd) => {
 
 /* Footer */
 .footer { background: #1a1a2e; color: #94a3b8; margin-top: 40px; }
-.footer-inner { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+.footer-inner { max-width: 960px; margin: 0 auto; padding: 0 24px; }
 .footer-top {
   display: flex; justify-content: space-between;
-  padding: 48px 0 32px; border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 36px 0 24px; border-bottom: 1px solid rgba(255,255,255,0.08);
 }
-.footer-brand { max-width: 300px; }
+.footer-brand { max-width: 260px; }
 .footer-desc { margin-top: 12px; font-size: 14px; line-height: 1.6; color: #64748b; }
-.footer-links { display: flex; gap: 64px; }
+.footer-links { display: flex; gap: 48px; }
 .link-group h4 { color: #e2e8f0; font-size: 14px; font-weight: 600; margin-bottom: 16px; }
 .link-group a {
   display: block; color: #64748b; font-size: 14px; margin-bottom: 10px;

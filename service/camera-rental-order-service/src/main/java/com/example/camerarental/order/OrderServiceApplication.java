@@ -11,7 +11,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableDiscoveryClient
 @EnableFeignClients
 @EnableScheduling
-@MapperScan("com.example.camerarental.order.mapper")
+@MapperScan({"com.example.camerarental.order.mapper", "com.example.camerarental.common.mapper"})
 public class OrderServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(OrderServiceApplication.class, args);

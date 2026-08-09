@@ -34,6 +34,12 @@ public class Evaluation {
 
     private String imagePaths; // 评价图片（逗号分隔）
 
+    private String reply; // 商家回复
+
+    private LocalDateTime repliedAt;
+
+    private Long repliedBy;
+
     private LocalDateTime createdAt;
 }
 

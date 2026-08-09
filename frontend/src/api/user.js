@@ -43,3 +43,18 @@ export const adminEnableUser = (userId) => {
   return request.put(`/user/admin/${userId}/enable`)
 }
 
+// 统一API对象
+export const userApi = {
+  register,
+  login,
+  getUserInfo,
+  updateProfile,
+  changePassword,
+  uploadAvatar,
+  logout: logoutApi,
+  // 管理员接口
+  adminList: adminListUsers,
+  adminDisable: adminDisableUser,
+  adminEnable: adminEnableUser
+}
+

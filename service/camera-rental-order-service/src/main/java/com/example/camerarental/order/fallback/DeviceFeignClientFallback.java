@@ -18,5 +18,17 @@ public class DeviceFeignClientFallback implements DeviceFeignClient {
         log.error("调用Device服务失败，deviceId={}", deviceId);
         return Result.error("设备服务暂时不可用，请稍后重试");
     }
+
+    @Override
+    public Result<Void> lockDevice(Long deviceId) {
+        log.error("调用Device服务失败(锁定设备)，deviceId={}", deviceId);
+        return Result.error("设备服务暂时不可用，请稍后重试");
+    }
+
+    @Override
+    public Result<Void> unlockDevice(Long deviceId) {
+        log.error("调用Device服务失败(解锁设备)，deviceId={}", deviceId);
+        return Result.error("设备服务暂时不可用，请稍后重试");
+    }
 }
 

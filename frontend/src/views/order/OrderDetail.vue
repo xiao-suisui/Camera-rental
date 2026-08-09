@@ -106,14 +106,63 @@
 
         <!-- 租用者：已完成，可评价 -->
         <el-button
-          v-if="order.status === 'FINISHED' && !isLessor"
+          v-if="order.status === 'FINISHED' && !isLessor && !hasEvaluated"
           type="primary"
           @click="handleEvaluate"
         >
           评价订单
         </el-button>
 
+        <el-button
+          v-if="order.userId && order.lessorId"
+          @click="handleContact"
+        >
+          <el-icon><ChatDotRound /></el-icon>
+          联系对方
+        </el-button>
         <el-button @click="$router.back()">返回</el-button>
+      </div>
+    </el-card>
+
+    <!-- 评价列表 -->
+    <el-card v-if="evaluations.length > 0" class="evaluations-card">
+      <template #header>
+        <span>订单评价</span>
+      </template>
+      <div v-loading="evaluationsLoading">
+        <div v-for="evaluation in evaluations" :key="evaluation.id" class="evaluation-item">
+          <div class="evaluation-header">
+            <span class="evaluation-role">
+              {{ evaluation.evaluatorId === userStore.userInfo.userId ? '我的评价' : '对方的评价' }}
+            </span>
+            <el-rate v-model="evaluation.score" disabled />
+            <span class="evaluation-time">{{ formatTime(evaluation.createdAt) }}</span>
+            <el-button
+              v-if="evaluation.evaluatorId === userStore.userInfo.userId"
+              type="danger"
+              link
+              size="small"
+              @click="handleDeleteEvaluation(evaluation.id)"
+            >
+              删除
+            </el-button>
+          </div>
+          <div class="evaluation-content">{{ evaluation.content }}</div>
+          <div v-if="evaluation.imagePaths" class="evaluation-images">
+            <el-image
+              v-for="(image, index) in evaluation.imagePaths.split(',')"
+              :key="index"
+              :src="image"
+              fit="cover"
+              style="width: 60px; height: 60px; margin-right: 8px"
+              :preview-src-list="evaluation.imagePaths.split(',')"
+            />
+          </div>
+          <div v-if="evaluation.reply" class="evaluation-reply">
+            <div class="reply-label">商家回复：</div>
+            <div class="reply-content">{{ evaluation.reply }}</div>
+          </div>
+        </div>
       </div>
     </el-card>
 
@@ -150,9 +199,12 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { orderApi } from '@/api/order'
 import { deviceApi } from '@/api/device'
+import { evaluationApi } from '@/api/evaluation'
+import { chatApi } from '@/api/chat'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ORDER_STATUS } from '@/constants'
+import { ChatDotRound } from '@element-plus/icons-vue'
 import { formatDate as formatDateUtil } from '@/utils/date'
 
 const route = useRoute()
@@ -162,12 +214,18 @@ const userStore = useUserStore()
 const loading = ref(false)
 const order = ref({})
 const device = ref({})
+const evaluations = ref([])
+const evaluationsLoading = ref(false)
 const shipDialogVisible = ref(false)
 const returnDialogVisible = ref(false)
 const shipForm = ref({ trackingNumber: '' })
 const returnForm = ref({ trackingNumber: '' })
 
 const isLessor = computed(() => order.value.lessorId === userStore.userInfo.userId)
+
+const hasEvaluated = computed(() => {
+  return evaluations.value.some(e => e.evaluatorId === userStore.userInfo.userId)
+})
 
 const getStatusText = (status) => ORDER_STATUS[status]?.text || status
 const getStatusType = (status) => ORDER_STATUS[status]?.type || 'info'
@@ -201,11 +259,43 @@ const loadOrderDetail = async () => {
     // 加载设备信息
     const deviceRes = await deviceApi.getById(data.deviceId)
     device.value = deviceRes.data
+
+    // 加载评价信息
+    await loadEvaluations()
   } catch (error) {
     ElMessage.error('加载订单详情失败')
     console.error(error)
   } finally {
     loading.value = false
+  }
+}
+
+const loadEvaluations = async () => {
+  evaluationsLoading.value = true
+  try {
+    const { data } = await evaluationApi.getByOrder(route.params.id)
+    evaluations.value = data || []
+  } catch (error) {
+    console.error('加载评价失败', error)
+  } finally {
+    evaluationsLoading.value = false
+  }
+}
+
+const handleDeleteEvaluation = async (evaluationId) => {
+  try {
+    await ElMessageBox.confirm('确认删除该评价？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await evaluationApi.delete(evaluationId)
+    ElMessage.success('删除成功')
+    await loadEvaluations()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '删除失败')
+    }
   }
 }
 
@@ -326,6 +416,19 @@ const handleConfirm = async () => {
 const handleEvaluate = () => {
   router.push(`/orders/${order.value.id}/evaluate`)
 }
+
+const handleContact = async () => {
+  const otherUserId = isLessor.value ? order.value.userId : order.value.lessorId
+  try {
+    const res = await chatApi.getOrCreateConversation({
+      otherUserId,
+      orderId: order.value.id
+    })
+    router.push(`/chat/${res.data.id}`)
+  } catch (error) {
+    ElMessage.error('创建会话失败')
+  }
+}
 </script>
 
 <style scoped>
@@ -361,5 +464,72 @@ const handleEvaluate = () => {
   display: flex;
   gap: 10px;
   justify-content: center;
+}
+
+.evaluations-card {
+  margin-top: 20px;
+}
+
+.evaluation-item {
+  padding: 16px;
+  background: #f8f9fc;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.evaluation-item:last-child {
+  margin-bottom: 0;
+}
+
+.evaluation-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.evaluation-role {
+  font-weight: 600;
+  color: #1a1a2e;
+  font-size: 14px;
+}
+
+.evaluation-time {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-left: auto;
+}
+
+.evaluation-content {
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.evaluation-images {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.evaluation-reply {
+  margin-top: 10px;
+  padding: 10px;
+  background: #eef2ff;
+  border-radius: 8px;
+  border-left: 3px solid #6366f1;
+}
+
+.reply-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6366f1;
+  margin-bottom: 4px;
+}
+
+.reply-content {
+  color: #475569;
+  line-height: 1.6;
 }
 </style>

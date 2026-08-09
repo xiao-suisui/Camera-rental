@@ -7,6 +7,7 @@ import com.example.camerarental.common.annotation.OperationLog;
 import com.example.camerarental.common.enums.ErrorCode;
 import com.example.camerarental.common.enums.UserStatus;
 import com.example.camerarental.common.exception.BusinessException;
+import com.example.camerarental.common.service.MinioService;
 import com.example.camerarental.user.config.JwtService;
 import com.example.camerarental.user.dto.*;
 import com.example.camerarental.user.entity.User;
@@ -14,13 +15,14 @@ import com.example.camerarental.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -30,6 +32,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final MinioService minioService;
 
     @Transactional
     public void register(RegisterRequest request) {
@@ -58,7 +61,7 @@ public class UserService {
         log.info("User registered: {}", request.getPhone());
     }
 
-    @OperationLog(type = "USER_LOGIN", description = "用户登录", saveResponseData = false)
+    @OperationLog(type = "USER_LOGIN", description = "用户登录", saveRequestData = false, saveResponseData = false)
     public LoginResponse login(LoginRequest request) {
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>().eq(User::getPhone, request.getPhone())
@@ -87,12 +90,12 @@ public class UserService {
         return new LoginResponse(token, refreshToken, user.getId(), user.getNickname(), user.getRole());
     }
 
-    @Cacheable(value = "user", key = "#userId")
     public User getUserById(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
+        signAvatarUrl(user);
         return user;
     }
 
@@ -119,6 +122,8 @@ public class UserService {
 
         user.setNickname(request.getNickname());
         user.setAddress(request.getAddress());
+        // 存储对象键而非签名URL，避免超过 VARCHAR(256) 限制
+        user.setAvatar(minioService.normalizeToObjectKey(request.getAvatar()));
         user.setUpdatedAt(LocalDateTime.now());
 
         userMapper.updateById(user);
@@ -126,7 +131,7 @@ public class UserService {
     }
 
     @Transactional
-    @OperationLog(type = "USER_PASSWORD_CHANGE", description = "修改密码")
+    @OperationLog(type = "USER_PASSWORD_CHANGE", description = "修改密码", saveRequestData = false)
     @CacheEvict(value = "user", key = "#userId")
     public void changePassword(Long userId, ChangePasswordRequest request) {
         User user = userMapper.selectById(userId);
@@ -212,6 +217,18 @@ public class UserService {
     @OperationLog(type = "USER_STATUS_CHANGE", description = "修改用户状态")
     @CacheEvict(value = "user", key = "#userId")
     public void updateUserStatus(Long userId, String status) {
+        // 校验状态值是否合法
+        boolean validStatus = false;
+        for (UserStatus s : UserStatus.values()) {
+            if (s.getValue().equals(status)) {
+                validStatus = true;
+                break;
+            }
+        }
+        if (!validStatus) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "无效的用户状态: " + status);
+        }
+
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "用户不存在");
@@ -223,6 +240,23 @@ public class UserService {
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(user);
         log.info("User status changed: userId={}, status={}", userId, status);
+    }
+
+    public List<Long> getAdminUserIds() {
+        return userMapper.selectList(
+                new LambdaQueryWrapper<User>().eq(User::getRole, "ADMIN")
+        ).stream().map(User::getId).collect(Collectors.toList());
+    }
+
+    private void signAvatarUrl(User user) {
+        if (user.getAvatar() == null || user.getAvatar().isBlank()) {
+            return;
+        }
+        try {
+            user.setAvatar(minioService.getFileUrl(user.getAvatar()));
+        } catch (Exception e) {
+            log.warn("Failed to sign avatar URL for userId={}: {}", user.getId(), e.getMessage());
+        }
     }
 }
 

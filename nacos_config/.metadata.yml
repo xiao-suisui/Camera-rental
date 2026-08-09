@@ -30,6 +30,11 @@ metadata:
   group: SHARED_GROUP
   type: yaml
 - appName: ''
+  dataId: cipher-config.yaml
+  desc: ''
+  group: SHARED_GROUP
+  type: yaml
+- appName: ''
   dataId: common-config.yaml
   desc: ''
   group: SHARED_GROUP
@@ -40,6 +45,11 @@ metadata:
   type: yaml
 - appName: ''
   dataId: redis-config.yaml
+  group: SHARED_GROUP
+  type: yaml
+- appName: ''
+  dataId: rabbitmq-config.yaml
+  desc: ''
   group: SHARED_GROUP
   type: yaml
 - appName: ''

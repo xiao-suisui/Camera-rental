@@ -10,10 +10,6 @@ import java.util.List;
 
 @Data
 public class DeviceBatchPublishRequest {
-
-    @NotNull(message = "用户ID不能为空")
-    private Long userId;
-
     @NotNull(message = "设备标题不能为空")
     private String title;
 

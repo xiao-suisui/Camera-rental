@@ -19,7 +19,9 @@ public class FavoriteController {
      * 收藏设备
      */
     @PostMapping("/add")
-    public Result<Void> addFavorite(@RequestParam Long userId, @RequestParam Long deviceId) {
+    public Result<Void> addFavorite(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam Long deviceId) {
         favoriteService.addFavorite(userId, deviceId);
         return Result.success("收藏成功", null);
     }
@@ -28,7 +30,9 @@ public class FavoriteController {
      * 取消收藏
      */
     @DeleteMapping("/remove")
-    public Result<Void> removeFavorite(@RequestParam Long userId, @RequestParam Long deviceId) {
+    public Result<Void> removeFavorite(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam Long deviceId) {
         favoriteService.removeFavorite(userId, deviceId);
         return Result.success("取消收藏成功", null);
     }
@@ -37,7 +41,9 @@ public class FavoriteController {
      * 检查是否已收藏
      */
     @GetMapping("/check")
-    public Result<Boolean> checkFavorite(@RequestParam Long userId, @RequestParam Long deviceId) {
+    public Result<Boolean> checkFavorite(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam Long deviceId) {
         return Result.success(favoriteService.isFavorited(userId, deviceId));
     }
 
@@ -45,7 +51,7 @@ public class FavoriteController {
      * 获取用户收藏列表
      */
     @GetMapping("/list")
-    public Result<List<Device>> listFavorites(@RequestParam Long userId) {
+    public Result<List<Device>> listFavorites(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(favoriteService.listFavoriteDevices(userId));
     }
 
@@ -53,7 +59,7 @@ public class FavoriteController {
      * 获取收藏数量
      */
     @GetMapping("/count")
-    public Result<Integer> getFavoriteCount(@RequestParam Long userId) {
+    public Result<Integer> getFavoriteCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(favoriteService.getFavoriteCount(userId));
     }
 }

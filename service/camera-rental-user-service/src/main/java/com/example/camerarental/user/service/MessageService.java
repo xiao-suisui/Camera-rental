@@ -73,10 +73,13 @@ public class MessageService {
      */
     @Transactional
     @OperationLog(type = "MESSAGE_READ", description = "标记消息已读")
-    public void markRead(Long messageId) {
+    public void markRead(Long messageId, Long userId) {
         Message message = messageMapper.selectById(messageId);
         if (message == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "消息不存在");
+        }
+        if (userId == null || !userId.equals(message.getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "无权操作该消息");
         }
 
         message.setReadStatus("READ");
@@ -102,10 +105,13 @@ public class MessageService {
      */
     @Transactional
     @OperationLog(type = "MESSAGE_DELETE", description = "删除消息")
-    public void delete(Long messageId) {
+    public void delete(Long messageId, Long userId) {
         Message message = messageMapper.selectById(messageId);
         if (message == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "消息不存在");
+        }
+        if (userId == null || !userId.equals(message.getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "无权操作该消息");
         }
 
         messageMapper.deleteById(messageId);

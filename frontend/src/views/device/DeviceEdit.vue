@@ -2,6 +2,7 @@
   <div class="device-edit">
     <el-card>
       <h2>编辑设备</h2>
+      <el-alert title="编辑后设备将重新提交审核，审核通过前不会展示给租户" type="info" show-icon :closable="false" style="margin-bottom: 20px" />
       <el-form :model="form" :rules="rules" ref="formRef" label-width="120px" v-loading="loading">
         <el-form-item label="设备标题" prop="title">
           <el-input v-model="form.title" placeholder="请输入设备标题" />
@@ -34,7 +35,7 @@
           <ImageUpload
             v-model="form.imagePaths"
             :max-count="5"
-            :max-size="5"
+            :max-size="10"
             @uploading-change="handleImageUploadingChange"
           />
         </el-form-item>
@@ -103,7 +104,7 @@ const rules = {
     { min: 50, message: '描述至少50字', trigger: 'blur' }
   ],
   imagePaths: [
-    { required: true, message: '请至少添加一张图片', trigger: 'change' }
+    { type: 'array', required: true, min: 1, message: '请至少添加一张图片', trigger: 'change' }
   ],
   rentPrice: [{ required: true, message: '请设置日租金', trigger: 'change' }],
   deposit: [{ required: true, message: '请设置押金', trigger: 'change' }],
@@ -143,15 +144,18 @@ const handleSubmit = async () => {
     ElMessage.warning('图片上传中，请稍后再提交')
     return
   }
-  await formRef.value.validate()
+  try {
+    await formRef.value.validate()
+  } catch {
+    return
+  }
   submitting.value = true
   try {
     await updateDevice(route.params.id, form.value)
-    ElMessage.success('更新成功')
+    ElMessage.success('更新成功，已重新提交审核')
     router.back()
   } catch (error) {
-    console.error(error)
-    ElMessage.error('更新失败')
+    ElMessage.error(error?.response?.data?.message || error?.message || '更新失败')
   } finally {
     submitting.value = false
   }

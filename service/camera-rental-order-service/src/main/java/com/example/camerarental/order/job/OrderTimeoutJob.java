@@ -1,10 +1,10 @@
 package com.example.camerarental.order.job;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.example.camerarental.common.enums.OrderStatus;
 import com.example.camerarental.order.entity.Order;
 import com.example.camerarental.order.mapper.OrderMapper;
+import com.example.camerarental.order.mq.OrderNotificationProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 订单超时自动取消定时任务
@@ -23,6 +24,7 @@ import java.time.LocalDateTime;
 public class OrderTimeoutJob {
 
     private final OrderMapper orderMapper;
+    private final OrderNotificationProducer orderNotificationProducer;
 
     /** 每分钟执行一次 */
     @Scheduled(fixedDelay = 60_000)
@@ -30,27 +32,32 @@ public class OrderTimeoutJob {
     public void cancelTimeoutOrders() {
         LocalDateTime deadline = LocalDateTime.now().minusMinutes(30);
 
-        // 先统计数量用于日志
-        Long count = orderMapper.selectCount(
+        List<Order> timeoutOrders = orderMapper.selectList(
                 new LambdaQueryWrapper<Order>()
                         .eq(Order::getStatus, OrderStatus.PENDING_PAY.getValue())
                         .lt(Order::getCreatedAt, deadline)
         );
 
-        if (count == null || count == 0) {
+        if (timeoutOrders == null || timeoutOrders.isEmpty()) {
             return;
         }
 
-        // 批量 UPDATE，避免 N+1 问题
-        orderMapper.update(null,
-                new LambdaUpdateWrapper<Order>()
-                        .eq(Order::getStatus, OrderStatus.PENDING_PAY.getValue())
-                        .lt(Order::getCreatedAt, deadline)
-                        .set(Order::getStatus, OrderStatus.CANCELED.getValue())
-                        .set(Order::getUpdatedAt, LocalDateTime.now())
-        );
+        int canceledCount = 0;
+        for (Order order : timeoutOrders) {
+            order.setStatus(OrderStatus.CANCELED.getValue());
+            order.setUpdatedAt(LocalDateTime.now());
+            orderMapper.updateById(order);
 
-        log.info("本次超时取消订单数: {}", count);
+            orderNotificationProducer.sendOrderCancelledCompensation(
+                order.getOrderNo(),
+                order.getUserId(),
+                order.getDeviceId(),
+                order.getCouponId()
+            );
+            canceledCount++;
+        }
+
+        log.info("本次超时取消订单数: {}", canceledCount);
     }
 }
 

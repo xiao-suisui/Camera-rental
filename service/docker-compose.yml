@@ -49,6 +49,7 @@ services:
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
       --appendonly yes
+      --notify-keyspace-events Ex
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
@@ -124,6 +125,26 @@ services:
     networks:
       - camera-rental-network
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: camera-rental-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/camera-rental}
+      TZ: Asia/Shanghai
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - camera-rental-network
+
   # ==================== 前端（Nginx 托管） ====================
 
   frontend:
@@ -155,6 +176,12 @@ services:
       - NACOS_ADDR=nacos:8848
       - NACOS_NAMESPACE=${NACOS_NAMESPACE:-public}
       - SENTINEL_DASHBOARD=sentinel:8858
+      - CAMERA_RENTAL_JWT_SECRET=${CAMERA_RENTAL_JWT_SECRET}
+      - CAMERA_RENTAL_RABBITMQ_USER=${CAMERA_RENTAL_RABBITMQ_USER}
+      - CAMERA_RENTAL_RABBITMQ_PASSWORD=${CAMERA_RENTAL_RABBITMQ_PASSWORD}
+      - CAMERA_RENTAL_REDIS_PASSWORD=${CAMERA_RENTAL_REDIS_PASSWORD}
+      - GATEWAY_CORS_ALLOWED_ORIGIN=${GATEWAY_CORS_ALLOWED_ORIGIN:-http://localhost:3000}
+      - GATEWAY_INTERNAL_IP_WHITELIST=${GATEWAY_INTERNAL_IP_WHITELIST:-127.0.0.1,::1}
       - TZ=Asia/Shanghai
     depends_on:
       nacos:
@@ -172,6 +199,16 @@ services:
       - NACOS_ADDR=nacos:8848
       - NACOS_NAMESPACE=${NACOS_NAMESPACE:-public}
       - SENTINEL_DASHBOARD=sentinel:8858
+      - CAMERA_RENTAL_DB_PASSWORD=${CAMERA_RENTAL_DB_PASSWORD}
+      - CAMERA_RENTAL_JWT_SECRET=${CAMERA_RENTAL_JWT_SECRET}
+      - CAMERA_RENTAL_RABBITMQ_USER=${CAMERA_RENTAL_RABBITMQ_USER}
+      - CAMERA_RENTAL_RABBITMQ_PASSWORD=${CAMERA_RENTAL_RABBITMQ_PASSWORD}
+      - CAMERA_RENTAL_MINIO_ACCESS_KEY=${CAMERA_RENTAL_MINIO_ACCESS_KEY}
+      - CAMERA_RENTAL_MINIO_SECRET_KEY=${CAMERA_RENTAL_MINIO_SECRET_KEY}
+      - CAMERA_RENTAL_REDIS_PASSWORD=${CAMERA_RENTAL_REDIS_PASSWORD}
+      - CAMERA_RENTAL_DRUID_USERNAME=${CAMERA_RENTAL_DRUID_USERNAME}
+      - CAMERA_RENTAL_DRUID_PASSWORD=${CAMERA_RENTAL_DRUID_PASSWORD}
+      - CAMERA_RENTAL_DRUID_ALLOW_IP=${CAMERA_RENTAL_DRUID_ALLOW_IP:-127.0.0.1}
       - TZ=Asia/Shanghai
     depends_on:
       nacos:
@@ -179,6 +216,8 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     deploy:
       replicas: ${USER_SERVICE_REPLICAS:-1}
@@ -195,11 +234,23 @@ services:
       - NACOS_ADDR=nacos:8848
       - NACOS_NAMESPACE=${NACOS_NAMESPACE:-public}
       - SENTINEL_DASHBOARD=sentinel:8858
+      - CAMERA_RENTAL_DB_PASSWORD=${CAMERA_RENTAL_DB_PASSWORD}
+      - CAMERA_RENTAL_JWT_SECRET=${CAMERA_RENTAL_JWT_SECRET}
+      - CAMERA_RENTAL_RABBITMQ_USER=${CAMERA_RENTAL_RABBITMQ_USER}
+      - CAMERA_RENTAL_RABBITMQ_PASSWORD=${CAMERA_RENTAL_RABBITMQ_PASSWORD}
+      - CAMERA_RENTAL_MINIO_ACCESS_KEY=${CAMERA_RENTAL_MINIO_ACCESS_KEY}
+      - CAMERA_RENTAL_MINIO_SECRET_KEY=${CAMERA_RENTAL_MINIO_SECRET_KEY}
+      - CAMERA_RENTAL_REDIS_PASSWORD=${CAMERA_RENTAL_REDIS_PASSWORD}
+      - CAMERA_RENTAL_DRUID_USERNAME=${CAMERA_RENTAL_DRUID_USERNAME}
+      - CAMERA_RENTAL_DRUID_PASSWORD=${CAMERA_RENTAL_DRUID_PASSWORD}
+      - CAMERA_RENTAL_DRUID_ALLOW_IP=${CAMERA_RENTAL_DRUID_ALLOW_IP:-127.0.0.1}
       - TZ=Asia/Shanghai
     depends_on:
       nacos:
         condition: service_healthy
       mysql:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     deploy:
       replicas: ${DEVICE_SERVICE_REPLICAS:-1}
@@ -216,6 +267,16 @@ services:
       - NACOS_ADDR=nacos:8848
       - NACOS_NAMESPACE=${NACOS_NAMESPACE:-public}
       - SENTINEL_DASHBOARD=sentinel:8858
+      - CAMERA_RENTAL_DB_PASSWORD=${CAMERA_RENTAL_DB_PASSWORD}
+      - CAMERA_RENTAL_JWT_SECRET=${CAMERA_RENTAL_JWT_SECRET}
+      - CAMERA_RENTAL_RABBITMQ_USER=${CAMERA_RENTAL_RABBITMQ_USER}
+      - CAMERA_RENTAL_RABBITMQ_PASSWORD=${CAMERA_RENTAL_RABBITMQ_PASSWORD}
+      - CAMERA_RENTAL_MINIO_ACCESS_KEY=${CAMERA_RENTAL_MINIO_ACCESS_KEY}
+      - CAMERA_RENTAL_MINIO_SECRET_KEY=${CAMERA_RENTAL_MINIO_SECRET_KEY}
+      - CAMERA_RENTAL_REDIS_PASSWORD=${CAMERA_RENTAL_REDIS_PASSWORD}
+      - CAMERA_RENTAL_DRUID_USERNAME=${CAMERA_RENTAL_DRUID_USERNAME}
+      - CAMERA_RENTAL_DRUID_PASSWORD=${CAMERA_RENTAL_DRUID_PASSWORD}
+      - CAMERA_RENTAL_DRUID_ALLOW_IP=${CAMERA_RENTAL_DRUID_ALLOW_IP:-127.0.0.1}
       - TZ=Asia/Shanghai
     depends_on:
       nacos:
@@ -223,6 +284,8 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     deploy:
       replicas: ${ORDER_SERVICE_REPLICAS:-1}
@@ -239,6 +302,16 @@ services:
       - NACOS_ADDR=nacos:8848
       - NACOS_NAMESPACE=${NACOS_NAMESPACE:-public}
       - SENTINEL_DASHBOARD=sentinel:8858
+      - CAMERA_RENTAL_DB_PASSWORD=${CAMERA_RENTAL_DB_PASSWORD}
+      - CAMERA_RENTAL_JWT_SECRET=${CAMERA_RENTAL_JWT_SECRET}
+      - CAMERA_RENTAL_RABBITMQ_USER=${CAMERA_RENTAL_RABBITMQ_USER}
+      - CAMERA_RENTAL_RABBITMQ_PASSWORD=${CAMERA_RENTAL_RABBITMQ_PASSWORD}
+      - CAMERA_RENTAL_MINIO_ACCESS_KEY=${CAMERA_RENTAL_MINIO_ACCESS_KEY}
+      - CAMERA_RENTAL_MINIO_SECRET_KEY=${CAMERA_RENTAL_MINIO_SECRET_KEY}
+      - CAMERA_RENTAL_REDIS_PASSWORD=${CAMERA_RENTAL_REDIS_PASSWORD}
+      - CAMERA_RENTAL_DRUID_USERNAME=${CAMERA_RENTAL_DRUID_USERNAME}
+      - CAMERA_RENTAL_DRUID_PASSWORD=${CAMERA_RENTAL_DRUID_PASSWORD}
+      - CAMERA_RENTAL_DRUID_ALLOW_IP=${CAMERA_RENTAL_DRUID_ALLOW_IP:-127.0.0.1}
       - TZ=Asia/Shanghai
     depends_on:
       nacos:
@@ -246,6 +319,8 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     deploy:
       replicas: ${COUPON_SERVICE_REPLICAS:-1}

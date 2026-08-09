@@ -14,14 +14,14 @@ feign:
   client:
     config:
       default:
-        connect-timeout: 5000
+        connect-timeout: 3000
         read-timeout: 10000
   sentinel:
     enabled: true
 
 mybatis-plus:
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
     map-underscore-to-camel-case: true
   global-config:
     db-config:
@@ -30,7 +30,6 @@ mybatis-plus:
 logging:
   level:
     com.example.camerarental: warn
-    io.seata: info
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 

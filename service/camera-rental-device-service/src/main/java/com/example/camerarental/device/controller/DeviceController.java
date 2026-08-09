@@ -24,13 +24,17 @@ public class DeviceController {
     private final DeviceService deviceService;
 
     @PostMapping("/publish")
-    public Result<DevicePublishResponse> publish(@Valid @RequestBody DevicePublishRequest request) {
-        return Result.success(deviceService.publish(request));
+    public Result<DevicePublishResponse> publish(
+            @Valid @RequestBody DevicePublishRequest request,
+            @RequestHeader("X-User-Id") Long userId) {
+        return Result.success(deviceService.publish(request, userId));
     }
 
     @PostMapping("/batch-publish")
-    public Result<List<DevicePublishResponse>> batchPublish(@Valid @RequestBody DeviceBatchPublishRequest request) {
-        return Result.success(deviceService.batchPublish(request));
+    public Result<List<DevicePublishResponse>> batchPublish(
+            @Valid @RequestBody DeviceBatchPublishRequest request,
+            @RequestHeader("X-User-Id") Long userId) {
+        return Result.success(deviceService.batchPublish(request, userId));
     }
 
     @AdminOnly
@@ -58,41 +62,66 @@ public class DeviceController {
     }
 
     @PutMapping("/{deviceId}")
-    public Result<Void> update(@PathVariable Long deviceId, @Valid @RequestBody DevicePublishRequest request) {
-        deviceService.updateDevice(deviceId, request);
+    public Result<Void> update(
+            @PathVariable Long deviceId,
+            @Valid @RequestBody DevicePublishRequest request,
+            @RequestHeader("X-User-Id") Long operatorUserId,
+            @RequestHeader(value = "X-User-Role", required = false) String operatorRole) {
+        deviceService.updateDevice(deviceId, request, operatorUserId, operatorRole);
         return Result.success("更新成功", null);
     }
 
     @DeleteMapping("/{deviceId}")
-    public Result<Void> delete(@PathVariable Long deviceId) {
-        deviceService.deleteDevice(deviceId);
+    public Result<Void> delete(
+            @PathVariable Long deviceId,
+            @RequestHeader("X-User-Id") Long operatorUserId,
+            @RequestHeader(value = "X-User-Role", required = false) String operatorRole) {
+        deviceService.deleteDevice(deviceId, operatorUserId, operatorRole);
         return Result.success("删除成功", null);
     }
 
     @PostMapping("/{deviceId}/offline")
-    public Result<Void> offline(@PathVariable Long deviceId) {
-        deviceService.offlineDevice(deviceId);
+    public Result<Void> offline(
+            @PathVariable Long deviceId,
+            @RequestHeader("X-User-Id") Long operatorUserId,
+            @RequestHeader(value = "X-User-Role", required = false) String operatorRole) {
+        deviceService.offlineDevice(deviceId, operatorUserId, operatorRole);
         return Result.success("下架成功", null);
     }
 
     @PostMapping("/{deviceId}/online")
-    public Result<Void> online(@PathVariable Long deviceId) {
-        deviceService.onlineDevice(deviceId);
+    public Result<Void> online(
+            @PathVariable Long deviceId,
+            @RequestHeader("X-User-Id") Long operatorUserId,
+            @RequestHeader(value = "X-User-Role", required = false) String operatorRole) {
+        deviceService.onlineDevice(deviceId, operatorUserId, operatorRole);
         return Result.success("上架成功", null);
     }
 
     @GetMapping("/my-devices")
-    public Result<List<Device>> getMyDevices(@RequestParam Long userId) {
+    public Result<List<Device>> getMyDevices(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(deviceService.getMyDevices(userId));
     }
 
+    @PostMapping("/{deviceId}/lock")
+    public Result<Void> lockDevice(@PathVariable Long deviceId) {
+        deviceService.lockDevice(deviceId);
+        return Result.success("设备已锁定", null);
+    }
+
+    @PostMapping("/{deviceId}/unlock")
+    public Result<Void> unlockDevice(@PathVariable Long deviceId) {
+        deviceService.unlockDevice(deviceId);
+        return Result.success("设备已解锁", null);
+    }
+
     @GetMapping("/stats/count")
-    public Result<Long> getDeviceCount() {
+    public Result<Long> getDeviceCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(deviceService.countDevices());
     }
 
     @GetMapping("/stats/pending")
-    public Result<Long> getPendingCount() {
+    public Result<Long> getPendingCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(deviceService.countPendingAudit());
     }
 

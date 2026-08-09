@@ -71,7 +71,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
-import { adminListUsers, adminDisableUser, adminEnableUser } from '@/api/user'
+import { userApi } from '@/api/user'
 
 const loading = ref(false)
 const users = ref([])
@@ -89,7 +89,7 @@ onMounted(() => {
 const loadUsers = async () => {
   loading.value = true
   try {
-    const res = await adminListUsers({
+    const res = await userApi.adminList({
       page: pagination.value.page,
       size: pagination.value.size,
       keyword: keyword.value || undefined
@@ -110,7 +110,7 @@ const handleDisable = async (user) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    await adminDisableUser(user.id)
+    await userApi.adminDisable(user.id)
     ElMessage.success('禁用成功')
     loadUsers()
   } catch (error) {
@@ -122,7 +122,7 @@ const handleDisable = async (user) => {
 
 const handleEnable = async (user) => {
   try {
-    await adminEnableUser(user.id)
+    await userApi.adminEnable(user.id)
     ElMessage.success('启用成功')
     loadUsers()
   } catch (error) {

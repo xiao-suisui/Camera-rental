@@ -49,3 +49,18 @@ export const BRAND_LIST = [
   '其他'
 ]
 
+export const DISPUTE_TYPE = {
+  DEVICE_DAMAGE: '设备损坏',
+  DEPOSIT_DISPUTE: '押金纠纷',
+  OVERDUE: '逾期纠纷',
+  DESCRIPTION_MISMATCH: '描述不符',
+  OTHER: '其他'
+}
+
+export const DISPUTE_STATUS = {
+  SUBMITTED: { text: '已提交', type: 'warning' },
+  PROCESSING: { text: '处理中', type: 'primary' },
+  RESOLVED: { text: '已解决', type: 'success' },
+  REJECTED: { text: '已驳回', type: 'danger' }
+}
+

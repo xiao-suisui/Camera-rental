@@ -36,8 +36,8 @@ export const onlineDevice = (deviceId) => {
   return request.post(`/device/${deviceId}/online`)
 }
 
-export const getMyDevices = (userId) => {
-  return request.get('/device/my-devices', { params: { userId } })
+export const getMyDevices = () => {
+  return request.get('/device/my-devices')
 }
 
 // 统一API对象

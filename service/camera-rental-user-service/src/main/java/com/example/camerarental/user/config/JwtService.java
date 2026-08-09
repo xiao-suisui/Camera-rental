@@ -126,5 +126,16 @@ public class JwtService {
             return e.getClaims();
         }
     }
+
+    /**
+     * 严格解析 AccessToken，过期则抛异常（用于 WebSocket 等不允许过期 token 的场景）
+     */
+    public Claims parseTokenStrict(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)))
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
 }
 

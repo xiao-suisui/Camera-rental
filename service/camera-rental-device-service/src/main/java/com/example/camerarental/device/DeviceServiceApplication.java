@@ -9,7 +9,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 @SpringBootApplication(scanBasePackages = "com.example.camerarental")
 @EnableDiscoveryClient
 @EnableFeignClients
-@MapperScan("com.example.camerarental.device.mapper")
+@MapperScan({"com.example.camerarental.device.mapper", "com.example.camerarental.common.mapper"})
 public class DeviceServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(DeviceServiceApplication.class, args);

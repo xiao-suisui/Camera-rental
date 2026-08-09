@@ -14,10 +14,15 @@
     <name>Camera Rental Device Service</name>
 
     <dependencies>
-        <!-- 公共依赖（web/nacos/sentinel/redis/mybatis/minio/knife4j 等）均由 common 传递 -->
+        <!-- 公共依赖（web/nacos/sentinel/redis/mybatis/knife4j 等）均由 common 传递 -->
         <dependency>
             <groupId>com.example</groupId>
             <artifactId>camera-rental-common</artifactId>
+        </dependency>
+        <!-- MinIO 文件存储（common 中 optional，此处显式引入） -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

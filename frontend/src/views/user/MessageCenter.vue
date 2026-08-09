@@ -73,6 +73,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { messageApi } from '@/api/message'
+import eventBus from '@/utils/eventBus'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
@@ -122,7 +123,7 @@ onMounted(async () => {
 const loadMessages = async () => {
   loading.value = true
   try {
-    const { data } = await messageApi.getList(userStore.userInfo.userId)
+    const { data } = await messageApi.getList()
     messages.value = data || []
   } catch (error) {
     ElMessage.error('加载消息列表失败')
@@ -134,7 +135,7 @@ const loadMessages = async () => {
 
 const loadUnreadCount = async () => {
   try {
-    const { data } = await messageApi.getUnreadCount(userStore.userInfo.userId)
+    const { data } = await messageApi.getUnreadCount()
     unreadCount.value = data || 0
   } catch (error) {
     console.error('获取未读数量失败', error)
@@ -152,6 +153,7 @@ const handleMarkRead = async (message) => {
     await messageApi.markRead(message.id)
     message.readStatus = 'READ'
     unreadCount.value = Math.max(0, unreadCount.value - 1)
+    eventBus.emit('message:updated')
   } catch (error) {
     console.error('标记已读失败', error)
   }
@@ -159,10 +161,11 @@ const handleMarkRead = async (message) => {
 
 const handleMarkAllRead = async () => {
   try {
-    await messageApi.markAllRead(userStore.userInfo.userId)
+    await messageApi.markAllRead()
     ElMessage.success('已全部标记为已读')
     await loadMessages()
     unreadCount.value = 0
+    eventBus.emit('message:updated')
   } catch (error) {
     ElMessage.error('操作失败')
   }
@@ -180,6 +183,7 @@ const handleDelete = async (messageId) => {
     ElMessage.success('删除成功')
     await loadMessages()
     await loadUnreadCount()
+    eventBus.emit('message:updated')
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('删除失败')

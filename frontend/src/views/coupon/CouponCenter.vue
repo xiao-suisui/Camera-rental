@@ -26,12 +26,12 @@
                   <div class="info-item">剩余：{{ coupon.totalCount - coupon.usedCount }}张</div>
                 </div>
                 <el-button
-                  type="primary"
+                  :type="coupon.received ? 'info' : 'primary'"
                   size="small"
                   @click="handleReceive(coupon)"
-                  :disabled="isReceiving"
+                  :disabled="isReceiving || coupon.received"
                 >
-                  立即领取
+                  {{ coupon.received ? '已领取' : '立即领取' }}
                 </el-button>
               </div>
             </el-card>
@@ -95,7 +95,6 @@ const handleReceive = async (coupon) => {
   isReceiving.value = true
   try {
     await couponApi.receive({
-      userId: userStore.userInfo.userId,
       couponId: coupon.id
     })
     ElMessage.success('领取成功')

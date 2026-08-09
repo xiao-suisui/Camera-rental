@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn clean *)",
+      "Bash(npm run *)",
+      "Bash(mysql -h localhost -P 3306 -u root -p123456 -e \"DESCRIBE operation_log\" camera_rental)",
+      "Bash(mysql -h localhost -P 3306 -u root -p123456 -e \"SHOW TABLES\" camera_rental)",
+      "Bash(mysql -h localhost -P 3306 -u root -p123456 -e \"DESCRIBE user\" camera_rental)",
+      "Bash(mysql -h localhost -P 3306 -u root -p123456 -e \"DESCRIBE device\" camera_rental)",
+      "Bash(mysql -h localhost -P 3306 -u root -p123456 -e \"DESCRIBE evaluation\" camera_rental)",
+      "Bash(mysql -h localhost -P 3306 -u root -p123456 -e \"SHOW COLUMNS FROM device LIKE 'status'\" camera_rental)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "github",
+    "filesystem"
+  ],
+  "enableAllProjectMcpServers": true
+}

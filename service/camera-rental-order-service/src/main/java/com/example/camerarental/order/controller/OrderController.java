@@ -2,18 +2,26 @@ package com.example.camerarental.order.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.example.camerarental.common.annotation.AdminOnly;
+import com.example.camerarental.common.entity.OperationLogEntity;
 import com.example.camerarental.common.annotation.RepeatSubmit;
 import com.example.camerarental.common.result.Result;
 import com.example.camerarental.order.dto.OrderCreateRequest;
 import com.example.camerarental.order.dto.OrderCreateResponse;
+import com.example.camerarental.order.dto.OutboxMetricsResponse;
 import com.example.camerarental.order.dto.OrderReturnApplyRequest;
 import com.example.camerarental.order.dto.OrderReturnConfirmRequest;
 import com.example.camerarental.order.dto.OrderShipRequest;
 import com.example.camerarental.order.entity.Order;
+import com.example.camerarental.order.service.OperationLogQueryService;
+import com.example.camerarental.order.service.OutboxMetricsService;
 import com.example.camerarental.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/order")
@@ -21,6 +29,8 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OutboxMetricsService outboxMetricsService;
+    private final OperationLogQueryService operationLogQueryService;
 
     @PostMapping("/create")
     @RepeatSubmit(interval = 5, message = "订单正在创建中，请勿重复提交")
@@ -89,13 +99,16 @@ public class OrderController {
     }
 
     @GetMapping("/{orderId}")
-    public Result<Order> getDetail(@PathVariable Long orderId) {
-        return Result.success(orderService.getDetail(orderId));
+    public Result<Order> getDetail(
+            @PathVariable Long orderId,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String role) {
+        return Result.success(orderService.getDetail(orderId, userId, role));
     }
 
     @GetMapping("/list")
     public Result<IPage<Order>> list(
-            @RequestParam Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String orderNo,
             @RequestParam(defaultValue = "1") int page,
@@ -105,26 +118,38 @@ public class OrderController {
 
     @GetMapping("/lessor/list")
     public Result<IPage<Order>> listLessorOrders(
-            @RequestParam Long lessorId,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return Result.success(orderService.listByLessorId(lessorId, page, size));
+        return Result.success(orderService.listByLessorId(userId, page, size));
     }
 
     @GetMapping("/renter/list")
     public Result<IPage<Order>> listRenterOrders(
-            @RequestParam Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         return Result.success(orderService.listByRenterId(userId, page, size));
     }
 
     @GetMapping("/stats/count")
-    public Result<Long> getOrderCount() {
+    public Result<Long> getOrderCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(orderService.countOrders());
     }
 
+    @GetMapping("/device/{deviceId}/has-active")
+    public Result<Boolean> hasActiveOrders(@PathVariable Long deviceId) {
+        return Result.success(orderService.hasActiveOrders(deviceId));
+    }
+
     // ========== 管理员接口 ==========
+
+    @AdminOnly
+    @GetMapping("/admin/stats/trend")
+    public Result<Map<String, Object>> getOrderTrend(
+            @RequestParam(defaultValue = "7") int days) {
+        return Result.success(orderService.getOrderTrend(days));
+    }
 
     @AdminOnly
     @GetMapping("/admin/list")
@@ -134,6 +159,28 @@ public class OrderController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         return Result.success(orderService.listAllOrders(status, orderNo, page, size));
+    }
+
+    @AdminOnly
+    @GetMapping("/admin/outbox/metrics")
+    public Result<OutboxMetricsResponse> getOutboxMetrics() {
+        return Result.success(outboxMetricsService.getMetrics());
+    }
+
+    @AdminOnly
+    @GetMapping("/admin/operation-logs")
+    public Result<IPage<OperationLogEntity>> listOperationLogs(
+            @RequestParam(required = false)
+            @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
+            @RequestParam(required = false)
+            @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String urlKeyword,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return Result.success(operationLogQueryService.pageLogs(startTime, endTime, type, status, urlKeyword, userId, page, size));
     }
 }
 

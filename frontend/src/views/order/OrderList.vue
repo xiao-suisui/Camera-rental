@@ -28,7 +28,7 @@
 
       <el-table :data="orders" v-loading="loading">
         <el-table-column prop="orderNo" label="订单号" width="200" />
-        <el-table-column label="设备信息" width="250">
+        <el-table-column label="设备信息" width="120">
           <template #default="{ row }">
             <div class="device-info">
               <span>设备ID: {{ row.deviceId }}</span>
@@ -88,6 +88,18 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="pagination-wrapper" v-if="total > pageSize">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="loadOrders"
+          @size-change="handleSizeChange"
+        />
+      </div>
     </el-card>
   </div>
 </template>
@@ -118,7 +130,6 @@ const loadOrders = async () => {
   loading.value = true
   try {
     const res = await orderApi.getList({
-      userId: userStore.userInfo.userId,
       status: searchForm.value.status || undefined,
       orderNo: searchForm.value.orderNo || undefined,
       page: currentPage.value,
@@ -132,6 +143,11 @@ const loadOrders = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleSizeChange = () => {
+  currentPage.value = 1
+  loadOrders()
 }
 
 const handleReset = () => {

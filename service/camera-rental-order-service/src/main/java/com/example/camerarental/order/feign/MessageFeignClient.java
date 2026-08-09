@@ -1,24 +1,25 @@
 package com.example.camerarental.order.feign;
 
 import com.example.camerarental.common.result.Result;
+import com.example.camerarental.order.fallback.MessageFeignClientFallback;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
-/**
- * 消息服务Feign客户端
- */
-@FeignClient(name = "camera-rental-user-service", contextId = "messageFeignClient")
+@FeignClient(
+        name = "camera-rental-user-service",
+        path = "/message",
+        fallback = MessageFeignClientFallback.class
+)
 public interface MessageFeignClient {
 
-    /**
-     * 发送站内信
-     */
-    @PostMapping("/message/send")
-    Result<Void> sendMessage(
+    @PostMapping("/internal/send")
+    Result<Void> sendInternalMessage(
             @RequestParam("userId") Long userId,
             @RequestParam("content") String content,
-            @RequestParam("type") String type
-    );
-}
+            @RequestParam("type") String type);
 
+    @PostMapping("/internal/send-to-admins")
+    Result<Void> sendToAllAdmins(
+            @RequestParam("content") String content,
+            @RequestParam("type") String type);
+}

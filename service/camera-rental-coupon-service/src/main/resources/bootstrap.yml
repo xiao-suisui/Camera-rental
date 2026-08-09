@@ -24,13 +24,16 @@ spring:
           - data-id: common-config.yaml
             group: SHARED_GROUP
             refresh: true
-          - data-id: cipher-config.yaml
+          - data-id: secret-config.yaml
             group: SHARED_GROUP
             refresh: true
           - data-id: datasource-config.yaml
             group: SHARED_GROUP
             refresh: true
           - data-id: redis-config.yaml
+            group: SHARED_GROUP
+            refresh: true
+          - data-id: rabbitmq-config.yaml
             group: SHARED_GROUP
             refresh: true
           - data-id: minio-config.yaml

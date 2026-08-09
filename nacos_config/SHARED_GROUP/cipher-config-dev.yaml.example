@@ -1,0 +1,41 @@
+# ============================================
+# DEV 环境敏感配置模板
+# 复制此文件为 cipher-config-dev.yaml 并填入实际值
+# 注意：包含开发口令，不可用于生产环境
+# ============================================
+
+# 数据库配置
+DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/camera_rental?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+DATASOURCE_USERNAME: root
+DATASOURCE_PASSWORD: <YOUR_DB_PASSWORD>
+
+# JWT 密钥（至少 32 字符）
+JWT_SECRET: <YOUR_JWT_SECRET>
+
+# MinIO 配置
+MINIO_ENDPOINT: http://127.0.0.1:9000
+MINIO_ACCESS_KEY: <YOUR_MINIO_ACCESS_KEY>
+MINIO_SECRET_KEY: <YOUR_MINIO_SECRET_KEY>
+
+# Redis 配置
+REDIS_HOST: 127.0.0.1
+REDIS_PORT: 6379
+REDIS_PASSWORD: <YOUR_REDIS_PASSWORD>
+
+# RabbitMQ 配置
+RABBITMQ_HOST: 127.0.0.1
+RABBITMQ_PORT: 5672
+RABBITMQ_VHOST: /camera-rental
+RABBITMQ_USER: guest
+RABBITMQ_PASSWORD: <YOUR_RABBITMQ_PASSWORD>
+
+# Druid 监控账号
+DRUID_USERNAME: admin
+DRUID_PASSWORD: <YOUR_DRUID_PASSWORD>
+DRUID_ALLOW_IP: 127.0.0.1
+
+# Sentinel Dashboard 地址
+SENTINEL_DASHBOARD: localhost:8858
+
+# Seata 开关
+SEATA_ENABLED: false

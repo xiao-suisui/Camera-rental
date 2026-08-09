@@ -82,10 +82,11 @@ const loading = ref(false)
 const loadDevices = async () => {
   loading.value = true
   try {
-    const res = await getMyDevices(userStore.userInfo.userId)
+    const res = await getMyDevices()
+    console.log('[loadDevices] response:', res)
     devices.value = res.data || []
   } catch (error) {
-    console.error(error)
+    console.error('[loadDevices] error:', error)
     ElMessage.error('加载设备列表失败')
   } finally {
     loading.value = false
@@ -136,20 +137,21 @@ const handleDelete = async (deviceId) => {
       cancelButtonText: '取消',
       type: 'error'
     })
-    await deleteDevice(deviceId)
+    const res = await deleteDevice(deviceId)
+    console.log('[deleteDevice] response:', res)
     ElMessage.success('删除成功')
-    loadDevices()
+    await loadDevices()
   } catch (error) {
+    console.error('[deleteDevice] error:', error)
     if (error !== 'cancel') {
-      console.error(error)
-      ElMessage.error('删除失败')
+      ElMessage.error(error?.message || '删除失败')
     }
   }
 }
 
 const canEdit = (device) => {
-  // 审核中或被拒绝的设备可以编辑
-  return ['PENDING', 'REJECTED'].includes(device.auditStatus)
+  // 已下架的设备可以编辑（下架后重新提交审核）
+  return device.status === 'OFFLINE'
 }
 
 const canDelete = (device) => {

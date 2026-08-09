@@ -70,5 +70,17 @@ public class ValidationUtils {
         }
         return username.substring(0, 2) + "****@" + parts[1];
     }
+
+    private static final Pattern HTML_TAG_PATTERN = Pattern.compile("<[^>]+>");
+
+    /**
+     * 清除 HTML 标签，防止存储型 XSS
+     */
+    public static String sanitizeHtml(String input) {
+        if (input == null) {
+            return null;
+        }
+        return HTML_TAG_PATTERN.matcher(input).replaceAll("").trim();
+    }
 }
 

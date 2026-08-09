@@ -32,7 +32,13 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
-    public Result<User> getUserById(@PathVariable Long userId) {
+    public Result<User> getUserById(
+            @PathVariable Long userId,
+            @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
+            @RequestHeader(value = "X-User-Role", required = false) String currentUserRole) {
+        if (!"ADMIN".equalsIgnoreCase(currentUserRole)) {
+            verifyIdentity(userId, currentUserId);
+        }
         return Result.success(userService.getUserById(userId));
     }
 
@@ -57,7 +63,7 @@ public class UserController {
     }
 
     @GetMapping("/stats/count")
-    public Result<Long> getUserCount() {
+    public Result<Long> getUserCount(@RequestHeader("X-User-Id") Long userId) {
         return Result.success(userService.countUsers());
     }
 

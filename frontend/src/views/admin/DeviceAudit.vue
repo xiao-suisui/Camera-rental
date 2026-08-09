@@ -219,7 +219,9 @@ const confirmReject = async () => {
   try {
     await auditDevice({
       deviceId: currentDevice.value.id,
-      auditStatus: 'REJECTED'
+      auditStatus: 'REJECTED',
+      reason: rejectForm.value.reason,
+      remark: rejectForm.value.remark
     })
     ElMessage.success('已拒绝')
     rejectDialogVisible.value = false

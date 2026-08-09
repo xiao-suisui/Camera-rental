@@ -46,7 +46,7 @@
           <ImageUpload
             v-model="form.imagePaths"
             :max-count="5"
-            :max-size="5"
+            :max-size="10"
             @uploading-change="handleImageUploadingChange"
           />
         </el-form-item>
@@ -82,23 +82,22 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+// 👇 修改点1：导入 reactive
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { publishDevice, batchPublishDevice } from '@/api/device'
-import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import ImageUpload from '@/components/ImageUpload.vue'
 
 const router = useRouter()
-const userStore = useUserStore()
 const formRef = ref()
 const submitting = ref(false)
 const imageUploading = ref(false)
 const publishType = ref('single')
 const batchQuantity = ref(1)
 
-const form = ref({
-  userId: userStore.userInfo.userId,
+// 👇 修改点2：表单对象用 reactive 定义（删除 ref）
+const form = reactive({
   title: '',
   brand: '',
   model: '',
@@ -118,7 +117,7 @@ const rules = {
     { min: 50, message: '描述至少50字', trigger: 'blur' }
   ],
   imagePaths: [
-    { required: true, message: '请至少添加一张图片', trigger: 'change' }
+    { type: 'array', required: true, min: 1, message: '请至少添加一张图片', trigger: 'change' }
   ],
   rentPrice: [{ required: true, message: '请设置日租金', trigger: 'change' }],
   deposit: [{ required: true, message: '请设置押金', trigger: 'change' }],
@@ -134,22 +133,26 @@ const handleSubmit = async () => {
     ElMessage.warning('图片上传中，请稍后再提交')
     return
   }
-  await formRef.value.validate()
+  try {
+    await formRef.value.validate()
+  } catch {
+    return
+  }
   submitting.value = true
   try {
     if (publishType.value === 'batch') {
       await batchPublishDevice({
-        ...form.value,
+        ...form, // 👈 无需 .value
         quantity: batchQuantity.value
       })
       ElMessage.success(`成功提交${batchQuantity.value}台设备，请等待审核`)
     } else {
-      await publishDevice(form.value)
+      await publishDevice(form) // 👈 无需 .value
       ElMessage.success('提交成功，请等待审核')
     }
     router.push('/devices')
   } catch (error) {
-    console.error(error)
+    ElMessage.error(error?.response?.data?.message || error?.message || '提交失败')
   } finally {
     submitting.value = false
   }
@@ -161,11 +164,9 @@ h2 {
   margin-bottom: 30px;
 }
 
-
 .tip {
   margin-left: 10px;
   color: #999;
   font-size: 14px;
 }
 </style>
-

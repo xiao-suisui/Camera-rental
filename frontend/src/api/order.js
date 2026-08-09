@@ -26,17 +26,18 @@ export const orderApi = {
   // 订单详情
   getDetail: (orderId) => request.get(`/order/${orderId}`),
 
-  // 我的订单列表（分页）
+  // 我的订单列表（分页，用户身份由后端从请求头判定）
   getList: (params) => request.get('/order/list', { params }),
 
-  // 我出租的订单（分页）
+  // 我出租的订单（分页，用户身份由后端从请求头判定）
   getLessorList: (params) => request.get('/order/lessor/list', { params }),
 
-  // 我租用的订单（分页）
+  // 我租用的订单（分页，用户身份由后端从请求头判定）
   getRenterList: (params) => request.get('/order/renter/list', { params }),
 
   // 管理员接口
-  adminList: (params) => request.get('/order/admin/list', { params })
+  adminList: (params) => request.get('/order/admin/list', { params }),
+  getOrderTrend: (days = 7) => request.get('/order/admin/stats/trend', { params: { days } })
 }
 
 // 兼容旧的导出方式

@@ -25,7 +25,7 @@
       </el-form>
 
       <!-- 订单列表 -->
-      <el-table :data="orders" v-loading="loading" style="width: 100%">
+      <el-table :data="orders" v-loading="loading" stripe>
         <el-table-column prop="orderNo" label="订单号" width="220" />
         <el-table-column prop="userId" label="租用者ID" width="90" />
         <el-table-column prop="lessorId" label="出租者ID" width="90" />
@@ -52,6 +52,18 @@
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" width="170" />
       </el-table>
+
+      <div class="pagination-wrapper" v-if="total > pageSize">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="loadOrders"
+          @size-change="handleSizeChange"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -88,6 +100,11 @@ const loadOrders = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleSizeChange = () => {
+  currentPage.value = 1
+  loadOrders()
 }
 
 const handleReset = () => {

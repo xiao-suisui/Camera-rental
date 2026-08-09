@@ -8,11 +8,16 @@ import com.example.camerarental.common.enums.AuditStatus;
 import com.example.camerarental.common.enums.DeviceStatus;
 import com.example.camerarental.common.enums.ErrorCode;
 import com.example.camerarental.common.exception.BusinessException;
+import com.example.camerarental.common.result.Result;
+import com.example.camerarental.common.mq.OrderCancelledEvent;
+import com.example.camerarental.common.service.MinioService;
+import com.example.camerarental.common.util.ValidationUtils;
 import com.example.camerarental.device.dto.DeviceAuditRequest;
 import com.example.camerarental.device.dto.DeviceBatchPublishRequest;
 import com.example.camerarental.device.dto.DevicePublishRequest;
 import com.example.camerarental.device.dto.DevicePublishResponse;
 import com.example.camerarental.device.entity.Device;
+import com.example.camerarental.device.feign.OrderFeignClient;
 import com.example.camerarental.device.mapper.DeviceMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,17 +39,22 @@ import java.util.stream.Collectors;
 public class DeviceService {
 
     private final DeviceMapper deviceMapper;
+    private final MinioService minioService;
+    private final OrderFeignClient orderFeignClient;
 
     @Transactional
     @OperationLog(type = "DEVICE_PUBLISH", description = "发布设备")
-    public DevicePublishResponse publish(DevicePublishRequest request) {
+    public DevicePublishResponse publish(DevicePublishRequest request, Long operatorUserId) {
+        if (operatorUserId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "未获取到用户身份信息");
+        }
         Device device = Device.builder()
-                .userId(request.getUserId())
-                .title(request.getTitle())
-                .brand(request.getBrand())
-                .model(request.getModel())
-                .description(request.getDescription())
-                .imagePaths(String.join(",", request.getImagePaths()))
+                .userId(operatorUserId)
+                .title(ValidationUtils.sanitizeHtml(request.getTitle()))
+                .brand(ValidationUtils.sanitizeHtml(request.getBrand()))
+                .model(ValidationUtils.sanitizeHtml(request.getModel()))
+                .description(ValidationUtils.sanitizeHtml(request.getDescription()))
+                .imagePaths(normalizeImagePaths(request.getImagePaths()))
                 .rentPrice(request.getRentPrice())
                 .deposit(request.getDeposit())
                 .address(request.getAddress())
@@ -62,19 +72,22 @@ public class DeviceService {
 
     @Transactional
     @OperationLog(type = "DEVICE_BATCH_PUBLISH", description = "批量发布设备")
-    public List<DevicePublishResponse> batchPublish(DeviceBatchPublishRequest request) {
+    public List<DevicePublishResponse> batchPublish(DeviceBatchPublishRequest request, Long operatorUserId) {
+        if (operatorUserId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "未获取到用户身份信息");
+        }
         String batchId = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
         List<Device> devices = new ArrayList<>(request.getQuantity());
 
         for (int i = 0; i < request.getQuantity(); i++) {
             devices.add(Device.builder()
-                    .userId(request.getUserId())
+                    .userId(operatorUserId)
                     .title(request.getTitle() + (request.getQuantity() > 1 ? " #" + (i + 1) : ""))
                     .brand(request.getBrand())
                     .model(request.getModel())
                     .description(request.getDescription())
-                    .imagePaths(String.join(",", request.getImagePaths()))
+                    .imagePaths(normalizeImagePaths(request.getImagePaths()))
                     .rentPrice(request.getRentPrice())
                     .deposit(request.getDeposit())
                     .address(request.getAddress())
@@ -95,7 +108,7 @@ public class DeviceService {
         List<DevicePublishResponse> responses = deviceMapper.selectList(
                         new LambdaQueryWrapper<Device>()
                                 .eq(Device::getBatchId, batchId)
-                                .eq(Device::getUserId, request.getUserId())
+                    .eq(Device::getUserId, operatorUserId)
                                 .orderByAsc(Device::getId)
                 ).stream()
                 .map(device -> new DevicePublishResponse(device.getId(), device.getAuditStatus()))
@@ -151,7 +164,9 @@ public class DeviceService {
             pageRequest.addOrder(com.baomidou.mybatisplus.core.metadata.OrderItem.desc("created_at"));
         }
 
-        return deviceMapper.searchDevices(pageRequest, keyword, brand, minPrice, maxPrice);
+        IPage<Device> result = deviceMapper.searchDevices(pageRequest, keyword, brand, minPrice, maxPrice);
+        result.getRecords().forEach(this::resolveImagePathsForRead);
+        return result;
     }
 
     @Cacheable(value = "device", key = "#deviceId")
@@ -160,55 +175,105 @@ public class DeviceService {
         if (device == null) {
             throw new BusinessException(ErrorCode.DEVICE_NOT_FOUND);
         }
+        resolveImagePathsForRead(device);
         return device;
     }
 
     @Transactional
     @OperationLog(type = "DEVICE_UPDATE", description = "更新设备")
     @CacheEvict(value = "device", key = "#deviceId")
-    public void updateDevice(Long deviceId, DevicePublishRequest request) {
+    public void updateDevice(Long deviceId, DevicePublishRequest request, Long operatorUserId, String operatorRole) {
         Device device = deviceMapper.selectById(deviceId);
         if (device == null) {
             throw new BusinessException(ErrorCode.DEVICE_NOT_FOUND);
         }
+        ensureOwnerOrAdmin(device, operatorUserId, operatorRole);
 
-        device.setTitle(request.getTitle());
-        device.setBrand(request.getBrand());
-        device.setModel(request.getModel());
-        device.setDescription(request.getDescription());
-        device.setImagePaths(String.join(",", request.getImagePaths()));
+        if (!DeviceStatus.OFFLINE.name().equals(device.getStatus())) {
+            throw new BusinessException(ErrorCode.DEVICE_NOT_AVAILABLE, "只有下架状态的设备才能编辑");
+        }
+
+        device.setTitle(ValidationUtils.sanitizeHtml(request.getTitle()));
+        device.setBrand(ValidationUtils.sanitizeHtml(request.getBrand()));
+        device.setModel(ValidationUtils.sanitizeHtml(request.getModel()));
+        device.setDescription(ValidationUtils.sanitizeHtml(request.getDescription()));
+        device.setImagePaths(normalizeImagePaths(request.getImagePaths()));
         device.setRentPrice(request.getRentPrice());
         device.setDeposit(request.getDeposit());
         device.setAddress(request.getAddress());
+        device.setAuditStatus(AuditStatus.PENDING.name());
         device.setUpdatedAt(LocalDateTime.now());
 
         deviceMapper.updateById(device);
-        log.info("Device updated: deviceId={}", deviceId);
+        log.info("Device updated and resubmitted for audit: deviceId={}", deviceId);
     }
 
     @Transactional
     @OperationLog(type = "DEVICE_DELETE", description = "删除设备")
     @CacheEvict(value = "device", key = "#deviceId")
-    public void deleteDevice(Long deviceId) {
+    public void deleteDevice(Long deviceId, Long operatorUserId, String operatorRole) {
         Device device = deviceMapper.selectById(deviceId);
         if (device == null) {
             throw new BusinessException(ErrorCode.DEVICE_NOT_FOUND);
         }
+        ensureOwnerOrAdmin(device, operatorUserId, operatorRole);
 
-        device.setDeleted(1);
-        device.setUpdatedAt(LocalDateTime.now());
-        deviceMapper.updateById(device);
+        // 检查是否有活跃订单
+        Result<Boolean> activeResult = orderFeignClient.hasActiveOrders(deviceId);
+        if (activeResult != null && activeResult.getData() != null && activeResult.getData()) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "设备存在进行中的订单，无法删除");
+        }
+
+        // 使用 deleteById 触发 MyBatis-Plus 逻辑删除拦截器（自动 SET deleted=1）
+        deviceMapper.deleteById(deviceId);
         log.info("Device deleted: deviceId={}", deviceId);
+    }
+
+    /**
+     * 锁定设备（条件更新：仅 ACTIVE → RENTED），用于订单创建时防止重复下单
+     */
+    @Transactional
+    @CacheEvict(value = "device", key = "#deviceId")
+    public void lockDevice(Long deviceId) {
+        int rows = deviceMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Device>()
+                        .eq(Device::getId, deviceId)
+                        .eq(Device::getStatus, DeviceStatus.ACTIVE.getValue())
+                        .set(Device::getStatus, DeviceStatus.RENTED.getValue())
+                        .set(Device::getUpdatedAt, LocalDateTime.now())
+        );
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.DEVICE_NOT_AVAILABLE, "设备不可用或已被锁定");
+        }
+        log.info("Device locked: deviceId={}", deviceId);
+    }
+
+    @Transactional
+    @CacheEvict(value = "device", key = "#deviceId")
+    public void unlockDevice(Long deviceId) {
+        int rows = deviceMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Device>()
+                        .eq(Device::getId, deviceId)
+                        .eq(Device::getStatus, DeviceStatus.RENTED.getValue())
+                        .set(Device::getStatus, DeviceStatus.ACTIVE.getValue())
+                        .set(Device::getUpdatedAt, LocalDateTime.now())
+        );
+        if (rows == 0) {
+            log.warn("Device unlock skipped (not in RENTED status): deviceId={}", deviceId);
+            return;
+        }
+        log.info("Device unlocked: deviceId={}", deviceId);
     }
 
     @Transactional
     @OperationLog(type = "DEVICE_OFFLINE", description = "下架设备")
     @CacheEvict(value = "device", key = "#deviceId")
-    public void offlineDevice(Long deviceId) {
+    public void offlineDevice(Long deviceId, Long operatorUserId, String operatorRole) {
         Device device = deviceMapper.selectById(deviceId);
         if (device == null) {
             throw new BusinessException(ErrorCode.DEVICE_NOT_FOUND);
         }
+        ensureOwnerOrAdmin(device, operatorUserId, operatorRole);
 
         device.setStatus(DeviceStatus.OFFLINE.getValue());
         device.setUpdatedAt(LocalDateTime.now());
@@ -219,11 +284,12 @@ public class DeviceService {
     @Transactional
     @OperationLog(type = "DEVICE_ONLINE", description = "上架设备")
     @CacheEvict(value = "device", key = "#deviceId")
-    public void onlineDevice(Long deviceId) {
+    public void onlineDevice(Long deviceId, Long operatorUserId, String operatorRole) {
         Device device = deviceMapper.selectById(deviceId);
         if (device == null) {
             throw new BusinessException(ErrorCode.DEVICE_NOT_FOUND);
         }
+        ensureOwnerOrAdmin(device, operatorUserId, operatorRole);
 
         device.setStatus(DeviceStatus.ACTIVE.getValue());
         device.setUpdatedAt(LocalDateTime.now());
@@ -232,12 +298,14 @@ public class DeviceService {
     }
 
     public List<Device> getMyDevices(Long userId) {
-        return deviceMapper.selectList(
+        List<Device> devices = deviceMapper.selectList(
                 new LambdaQueryWrapper<Device>()
                         .eq(Device::getUserId, userId)
                         .eq(Device::getDeleted, 0)
                         .orderByDesc(Device::getCreatedAt)
         );
+        devices.forEach(this::resolveImagePathsForRead);
+        return devices;
     }
 
     public long countDevices() {
@@ -264,7 +332,53 @@ public class DeviceService {
             wrapper.eq(Device::getBrand, brand);
         }
         wrapper.orderByDesc(Device::getCreatedAt);
-        return deviceMapper.selectPage(new Page<>(page, size), wrapper);
+        IPage<Device> result = deviceMapper.selectPage(new Page<>(page, size), wrapper);
+        result.getRecords().forEach(this::resolveImagePathsForRead);
+        return result;
+    }
+
+    @Transactional
+    @CacheEvict(value = "device", key = "#event.deviceId")
+    public void handleOrderCancelledReleaseStock(OrderCancelledEvent event) {
+        if (event == null || event.getDeviceId() == null) {
+            log.warn("Skip stock release for invalid order-cancelled event: {}", event);
+            return;
+        }
+
+        Device device = deviceMapper.selectById(event.getDeviceId());
+        if (device == null || Integer.valueOf(1).equals(device.getDeleted())) {
+            log.warn("Skip stock release because device not found or deleted: deviceId={}", event.getDeviceId());
+            return;
+        }
+
+        device.setStatus(DeviceStatus.ACTIVE.getValue());
+        device.setUpdatedAt(LocalDateTime.now());
+        deviceMapper.updateById(device);
+        log.info("Order-cancelled stock released: orderNo={}, deviceId={}", event.getOrderNo(), event.getDeviceId());
+    }
+
+    private void resolveImagePathsForRead(Device device) {
+        if (device == null || device.getImagePaths() == null || device.getImagePaths().isBlank()) {
+            return;
+        }
+        device.setImagePaths(minioService.toSignedUrlPaths(device.getImagePaths()));
+    }
+
+    private String normalizeImagePaths(List<String> imagePaths) {
+        if (imagePaths == null || imagePaths.isEmpty()) {
+            return "";
+        }
+        String joined = String.join(",", imagePaths);
+        return minioService.normalizeImagePaths(joined);
+    }
+
+    private void ensureOwnerOrAdmin(Device device, Long operatorUserId, String operatorRole) {
+        if ("ADMIN".equalsIgnoreCase(operatorRole)) {
+            return;
+        }
+        if (operatorUserId == null || device == null || !operatorUserId.equals(device.getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "无权操作该设备");
+        }
     }
 }
 
