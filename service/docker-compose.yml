@@ -78,7 +78,7 @@ services:
       - JVM_XMX=512m
       - TZ=Asia/Shanghai
       - NACOS_AUTH_ENABLE=true
-      - NACOS_AUTH_TOKEN=${NACOS_AUTH_TOKEN}
+      - NACOS_AUTH_TOKEN=${NACOS_AUTH_TOKEN:?NACOS_AUTH_TOKEN is required, generate with openssl rand -base64 32}
       - NACOS_AUTH_IDENTITY_KEY=${NACOS_AUTH_IDENTITY_KEY:?NACOS_AUTH_IDENTITY_KEY is required, generate with openssl rand -hex 32}
       - NACOS_AUTH_IDENTITY_VALUE=${NACOS_AUTH_IDENTITY_VALUE:?NACOS_AUTH_IDENTITY_VALUE is required, generate with openssl rand -hex 32}
     ports:
