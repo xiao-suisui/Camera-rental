@@ -103,7 +103,7 @@ Secrets reference env vars (`${CAMERA_RENTAL_DB_PASSWORD}`) in prod; `cipher-con
 
 ### Database
 
-11 tables in `sql/schema.sql`, seed data in `sql/data.sql`. Key tables: `user`, `device`, `order`, `coupon`, `user_coupon`, `evaluation`, `message`, `device_favorite`, `mq_outbox`, `mq_consume_log`, `operation_log`.
+14 tables in `sql/schema.sql`, seed data in `sql/data.sql`. Key tables: `user`, `device`, `order`, `coupon`, `user_coupon`, `evaluation`, `message`, `device_favorite`, `mq_outbox`, `mq_consume_log`, `operation_log`, `chat_conversation`, `chat_message`, `dispute`.
 
 ## Code Conventions
 
