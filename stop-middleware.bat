@@ -16,7 +16,7 @@ if %errorlevel% equ 0 (
 
 echo.
 echo [2/5] 停止 Sentinel Dashboard...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8858"') do (
+for /f "tokens=5" %%a in ('netstat -ano -p tcp ^| findstr ":8858" ^| findstr "LISTENING"') do (
     taskkill /F /PID %%a >nul 2>&1
 )
 echo ✅ Sentinel Dashboard 已停止
@@ -34,8 +34,8 @@ if %errorlevel% equ 0 (
 echo.
 echo [4/5] 停止 MySQL (可选)...
 echo ⚠️  MySQL 作为系统服务运行，建议保持运行状态
-echo    如需停止，请执行: net stop MySQL80
-REM net stop MySQL80 >nul 2>&1
+echo    如需停止，请执行: net stop MySQL
+REM net stop MySQL >nul 2>&1
 
 echo.
 echo [5/5] 检查端口状态...
