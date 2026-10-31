@@ -88,7 +88,7 @@ docker-compose up -d    # Starts all 10 services (MySQL, Redis, Nacos, etc. + 4 
 3. Nacos `SHARED_GROUP` → common-config, datasource, redis, rabbitmq, minio, secrets
 4. Nacos `DEFAULT_GROUP` per service → full service config (port, Sentinel, JWT, logging)
 
-Secrets reference env vars (`${CAMERA_RENTAL_DB_PASSWORD}`) in prod; `cipher-config-dev.yaml` has hardcoded dev values.
+Secrets reference env vars (`${CAMERA_RENTAL_DB_PASSWORD}`) in prod; `secret-config-dev.yaml` has hardcoded dev values.
 
 ### Security Model
 

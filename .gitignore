@@ -46,8 +46,8 @@ frontend/node_modules/
 *.local
 
 ### 敏感配置（Nacos 密钥文件，勿提交真实密码） ###
-nacos_config/SHARED_GROUP/cipher-config.yaml
-nacos_config/SHARED_GROUP/cipher-config-dev.yaml
+nacos_config/SHARED_GROUP/secret-config.yaml
+nacos_config/SHARED_GROUP/secret-config-dev.yaml
 
 ### MCP 配置（含 token） ###
 .mcp.json

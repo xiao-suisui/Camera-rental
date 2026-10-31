@@ -30,7 +30,7 @@ metadata:
   group: SHARED_GROUP
   type: yaml
 - appName: ''
-  dataId: cipher-config.yaml
+  dataId: secret-config.yaml
   desc: ''
   group: SHARED_GROUP
   type: yaml

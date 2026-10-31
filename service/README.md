@@ -175,7 +175,7 @@ Exchange: camera.rental.order.topic.v1 (topic)
 - `application-dev.yml`：本地开发覆盖配置（如端口）
 - **Nacos DEFAULT_GROUP**：各服务独立配置（端口、mybatis-plus、sentinel、springdoc）
 - **Nacos SHARED_GROUP**：共享配置（datasource、redis、rabbitmq、minio、common）
-- **Nacos cipher-config.yaml**：敏感配置（密码、密钥），不入 Git
+- **Nacos secret-config.yaml**：敏感配置（密码、密钥），不入 Git
 
 ## 编译与运行
 

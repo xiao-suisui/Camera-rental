@@ -133,7 +133,7 @@ NACOS_ADDR=192.168.1.100:8848;NACOS_NAMESPACE=prod
 |---------|------|---------|
 | common-config.yaml | 通用配置 | 所有服务 |
 | datasource-config.yaml | 数据库配置 | User/Device/Order/Coupon |
-| cipher-config.yaml | 加密配置 | 所有服务 |
+| secret-config.yaml | 加密配置 | 所有服务 |
 | redis-config.yaml | Redis配置 | User/Device/Order/Coupon/Gateway |
 | minio-config.yaml | MinIO配置 | Device |
 | seata-config.yaml | Seata分布式事务 | Order（可选） |
@@ -198,7 +198,7 @@ public class ConfigController {
 本地配置 > Nacos 配置 > bootstrap.yml 默认值
 
 ### 4. **敏感信息**
-敏感配置（如数据库密码）存储在 `cipher-config.yaml` 中，使用加密存储。
+敏感配置（如数据库密码）存储在 `secret-config.yaml` 中，使用加密存储。
 
 ## 🛠️ 故障排查
 

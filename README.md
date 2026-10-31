@@ -239,7 +239,7 @@ Camera-rental/
 │       ├── redis-config.yaml             #   Redis 连接
 │       ├── rabbitmq-config.yaml          #   RabbitMQ 连接
 │       ├── minio-config.yaml             #   MinIO 连接
-│       ├── cipher-config.yaml.example    #   敏感配置模板（密码/密钥）
+│       ├── secret-config.yaml.example    #   敏感配置模板（密码/密钥）
 │       └── seata-config.yaml             #   Seata 配置（预留）
 │
 ├── sql/                                  # ===== 数据库脚本 =====
@@ -319,7 +319,7 @@ minio server /data --console-address ":9001"
 3. 导入 `nacos_config/` 下所有 `.yaml` 文件，注意分组：
    - `DEFAULT_GROUP`：各服务独立配置
    - `SHARED_GROUP`：共享配置
-4. **重要**：复制 `cipher-config.yaml.example` → `cipher-config.yaml`，填入实际密码后导入
+4. **重要**：复制 `secret-config.yaml.example` → `secret-config.yaml`，填入实际密码后导入
 
 ### 5. 启动后端
 
@@ -359,9 +359,9 @@ npm run dev
 
 ## 环境配置
 
-所有敏感配置通过 Nacos `cipher-config.yaml` 集中管理，**不入 Git**。
+所有敏感配置通过 Nacos `secret-config.yaml` 集中管理，**不入 Git**。
 
-需要配置的环境变量（或直接在 cipher-config.yaml 中填写）：
+需要配置的环境变量（或直接在 secret-config.yaml 中填写）：
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|

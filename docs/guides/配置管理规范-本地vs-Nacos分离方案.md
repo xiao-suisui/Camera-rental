@@ -537,7 +537,7 @@ seata:
 ### Nacos配置加密
 在Nacos中创建加密配置文件：
 
-#### cipher-config.yaml（加密配置）
+#### secret-config.yaml（加密配置）
 ```yaml
 # 数据库配置（生产环境）
 DATASOURCE_URL: jdbc:mysql://prod-db.example.com:3306/camera_rental?useSSL=true&serverTimezone=UTC&characterEncoding=utf8
